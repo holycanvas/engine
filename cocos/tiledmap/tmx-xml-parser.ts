@@ -537,8 +537,7 @@ export class TMXMapInfo {
      */
     parseXMLString (xmlStr: string, tilesetFirstGid?: number) {
         const parser = new SAXParser();
-        // @ts-ignore
-        const mapXML: Document = parser._parseXML(xmlStr);
+        const mapXML: Document = parser.parse(xmlStr);
         let i: number;
 
         // PARSE <map>

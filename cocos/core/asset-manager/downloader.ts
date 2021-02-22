@@ -26,7 +26,8 @@
  * @packageDocumentation
  * @module asset-manager
  */
-import { EDITOR } from 'internal:constants';
+import { EDITOR, HTML5 } from 'internal:constants';
+import * as zip from '@zip.js/zip.js';
 import { sys } from '../platform/sys';
 import { js } from '../utils';
 import { callInNextTick } from '../utils/misc';
@@ -99,9 +100,28 @@ const downloadBundle = (nameOrUrl: string, options: IBundleOptions, onComplete: 
         }
         out = response as Record<string, any>;
         if (out) { out.base = `${url}/`; }
-        count++;
-        if (count === 2) {
-            onComplete(error, out);
+        if (out.isZip) {
+            const promise = new zip.ZipReader(new zip.HttpReader(`${url}/res.zip`, {})).getEntries();
+            promise.then((entries) => {
+                entries.forEach((entry) => {
+                    downloader.map[`${out.base}${entry.filename}`] = entry;
+                });
+                out.base += 'res/';
+                count++;
+                if (count === 2) {
+                    onComplete(error, out);
+                }
+            }).catch((err) => {
+                count++;
+                if (count === 2) {
+                    onComplete(err, null);
+                }
+            });
+        } else {
+            count++;
+            if (count === 2) {
+                onComplete(error, out);
+            }
         }
     });
 
@@ -209,14 +229,6 @@ export class Downloader {
     public bundleVers: Record<string, string> | null = null;
 
     public remoteBundles: string[] = [];
-
-    public downloadDomImage = downloadDomImage;
-
-    public downloadDomAudio: DownloadHandler | null = null;
-
-    public downloadFile = downloadFile;
-
-    public downloadScript = downloadScript;
 
     // dafault handler map
     private _downloaders: Record<string, DownloadHandler> = {

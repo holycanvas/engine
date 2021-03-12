@@ -54,8 +54,7 @@ export default function fetch (task: Task, done: CompleteCallbackNoData) {
     forEach(task.input as RequestItem[], (item, cb) => {
         if (!item.isNative && assets.has(item.uuid)) {
             const asset = assets.get(item.uuid);
-            asset!.addRef();
-            handle(item, task, asset, null, asset!.__asyncLoadAssets__, depends, total);
+            handle(item, task, asset, null, false, depends, total);
             cb();
             return;
         }
@@ -95,25 +94,14 @@ export default function fetch (task: Task, done: CompleteCallbackNoData) {
                         task.output.push(...subTask.output);
                         subTask.recycle();
                     }
-                    if (firstTask) { decreaseRef(task); }
                     done(err);
                 },
             });
             fetchPipeline.async(subTask);
             return;
         }
-        if (firstTask) { decreaseRef(task); }
         done();
     });
-}
-
-function decreaseRef (task: Task) {
-    const output = task.output as RequestItem[];
-    for (let i = 0, l = output.length; i < l; i++) {
-        if (output[i].content) {
-            (output[i].content as Asset).decRef(false);
-        }
-    }
 }
 
 function handle (item: RequestItem, task: Task, content: any, file: any, loadDepends: boolean, depends: any[], last: number) {
@@ -126,7 +114,7 @@ function handle (item: RequestItem, task: Task, content: any, file: any, loadDep
 
     if (loadDepends) {
         exclude[item.uuid] = true;
-        getDepends(item.uuid, file || content, exclude, depends, true, false, item.config!);
+        getDepends(item.uuid, file, exclude, depends, item.config!);
         progress.total = last + depends.length;
     }
 

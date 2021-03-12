@@ -37,22 +37,19 @@ export type CompleteCallback<T = any> = (err: Error | null, data?: T | null) => 
 export type CompleteCallbackNoData = (err?: Error | null) => void;
 export type CompleteCallbackWithData<T = any> = (err: Error | null, data: T) => void;
 export type ProgressCallback = (finished: number, total: number, item: RequestItem) => void;
-export type Request = string | string[] | IRequest | Array<IRequest>;
+export type Request = string | IRequest | Array<IRequest | string>;
 
-export interface IRequest extends IOptions {
-    uuid?: string;
-    url?: string;
+export interface IRequest extends ILowLevelRequest {
     path?: string;
     dir?: string;
     scene?: string;
+    type?: Constructor<Asset> | null;
 }
 
-export interface IOptions extends IBundleOptions, IRemoteOptions {
-    type?: typeof Asset;
-    bundle?: string;
-}
-
-export interface IRemoteOptions extends IAssetOptions {
+export interface ILowLevelRequest extends IAssetOptions {
+    uuid?: string;
+    url?: string;
+    bundle?: string | null;
     ext?: string;
 }
 
@@ -102,19 +99,6 @@ export const pipeline = new Pipeline('normal load', []);
 export const fetchPipeline = new Pipeline('fetch', []);
 export const transformPipeline = new Pipeline('transform url', []);
 export const references = EDITOR ? new Cache<any[]>() : null;
-
-export enum RequestType {
-
-    UUID = 'uuid',
-
-    PATH = 'path',
-
-    DIR = 'dir',
-
-    URL = 'url',
-
-    SCENE = 'scene',
-}
 
 export const presets: Record<string, Record<string, any>> = {
 

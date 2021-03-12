@@ -37,7 +37,7 @@ import dependUtil from './depend-util';
 import { IDependProp } from './deserialize';
 import { isScene } from './helper';
 import RequestItem from './request-item';
-import { assets, AssetType, CompleteCallbackNoData, CompleteCallback, IOptions, ProgressCallback, references } from './shared';
+import { assets, AssetType, CompleteCallbackNoData, CompleteCallback, IAssetOptions, ProgressCallback, references, IRequest, bundles } from './shared';
 import Task from './task';
 
 let defaultProgressCallback: ProgressCallback | null = null;
@@ -49,11 +49,6 @@ export function setDefaultProgressCallback (onProgress: ProgressCallback) {
 export function clear (task: Task, clearRef: boolean) {
     for (let i = 0, l = task.input.length; i < l; i++) {
         const item = task.input[i] as RequestItem;
-        if (clearRef) {
-            if (!item.isNative && item.content instanceof Asset) {
-                item.content.decRef(false);
-            }
-        }
         item.recycle();
     }
     task.input = null;
@@ -88,41 +83,19 @@ export function retry (process: RetryFunction, times: number, wait: number, onCo
 }
 
 export function getDepends (uuid: string, data: Asset | Record<string, any>, exclude: Record<string, any>,
-    depends: any[], preload: boolean, asyncLoadAssets: boolean, config: Config): void {
+    depends: IRequest[], config: Config): void {
     try {
         const info = dependUtil.parse(uuid, data);
-        let includeNative = true;
-        if (data instanceof Asset && (!data.__nativeDepend__)) { includeNative = false; }
-        if (!preload) {
-            asyncLoadAssets = !EDITOR && (!!(data as SceneAsset|Prefab).asyncLoadAssets || (asyncLoadAssets && !info.preventDeferredLoadDependents));
-            for (let i = 0, l = info.deps.length; i < l; i++) {
-                const dep = info.deps[i];
-                if (!(dep in exclude)) {
-                    exclude[dep] = true;
-                    depends.push({ uuid: dep, __asyncLoadAssets__: asyncLoadAssets, bundle: config && config.name });
-                }
+        for (let i = 0, l = info.deps.length; i < l; i++) {
+            const dep = info.deps[i];
+            if (!(dep in exclude)) {
+                exclude[dep] = true;
+                depends.push({ uuid: dep, bundle: config && config.name });
             }
+        }
 
-            if (includeNative && !asyncLoadAssets && !info.preventPreloadNativeObject && info.nativeDep) {
-                if (config) {
-                    info.nativeDep.bundle = config.name;
-                }
-                depends.push({ ...info.nativeDep });
-            }
-        } else {
-            for (let i = 0, l = info.deps.length; i < l; i++) {
-                const dep = info.deps[i];
-                if (!(dep in exclude)) {
-                    exclude[dep] = true;
-                    depends.push({ uuid: dep, bundle: config && config.name });
-                }
-            }
-            if (includeNative && info.nativeDep) {
-                if (config) {
-                    info.nativeDep.bundle = config.name;
-                }
-                depends.push({ ...info.nativeDep });
-            }
+        if (info.nativeDep) {
+            depends.push({ ...info.nativeDep, bundle: config && config.name });
         }
     } catch (e) {
         error(e.message, e.stack);
@@ -157,7 +130,7 @@ export function setProperties (uuid: string, asset: Asset, assetsMap: Record<str
                 }
                 missingAsset = true;
             } else {
-                depend.owner[depend.prop] = dependAsset.addRef();
+                depend.owner[depend.prop] = dependAsset;
                 if (EDITOR) {
                     let reference = references!.get(dependAsset);
                     if (!reference || isScene(asset)) {
@@ -227,7 +200,7 @@ export function forEach<T = any> (array: T[], process: ForEachFunction<T>, onCom
 }
 
 interface IParameters<T> {
-    options: IOptions;
+    options: IAssetOptions;
     onProgress: ProgressCallback | null;
     onComplete: T | null;
 }
@@ -239,7 +212,7 @@ interface ILoadResArgs<T> {
 }
 
 export function parseParameters<T extends (...args) => void> (
-    options: IOptions | ProgressCallback | T | null | undefined,
+    options: IAssetOptions | ProgressCallback | T | null | undefined,
     onProgress: ProgressCallback | T | null | undefined,
     onComplete: T | null | undefined): IParameters<T> {
     let optionsOut: any = options;
@@ -294,37 +267,10 @@ export function parseLoadResArgs<T extends (...args) => void> (
     return { type: typeOut, onProgress: onProgressOut || defaultProgressCallback, onComplete: onCompleteOut };
 }
 
-export function checkCircleReference (owner: string, uuid: string, map: Record<string, any>, checked: Record<string, boolean> = {}): boolean {
-    const item = map[uuid];
-    if (!item || checked[uuid]) {
-        return false;
-    }
-    checked[uuid] = true;
-    let result = false;
-    const deps = dependUtil.getDeps(uuid);
-    if (deps) {
-        for (let i = 0, l = deps.length; i < l; i++) {
-            const dep = deps[i];
-            if (dep === owner || checkCircleReference(owner, dep, map, checked)) {
-                result = true;
-                break;
-            }
-        }
-    }
-    return result;
-}
-
 export function asyncify (cb: ((p1?: any, p2?: any) => void) | null): (p1?: any, p2?: any) => void {
     return (p1, p2) => {
         if (!cb) { return; }
-        const refs: Asset[] = [];
-        if (Array.isArray(p2)) {
-            p2.forEach((x) => x instanceof Asset && refs.push(x.addRef()));
-        } else if (p2 instanceof Asset) {
-            refs.push(p2.addRef());
-        }
         callInNextTick(() => {
-            refs.forEach((x) => x.decRef(false));
             cb(p1, p2);
         });
     };

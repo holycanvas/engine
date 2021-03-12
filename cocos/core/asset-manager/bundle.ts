@@ -32,7 +32,7 @@ import { error, errorID } from '../platform/debug';
 import Config, { IAddressableInfo, IAssetInfo, IConfigOption, ISceneInfo } from './config';
 import releaseManager from './release-manager';
 import RequestItem from './request-item';
-import { assets, AssetType, bundles, CompleteCallbackWithData, CompleteCallbackNoData, IAssetOptions, ProgressCallback, RequestType } from './shared';
+import { assets, AssetType, bundles, CompleteCallbackWithData, CompleteCallbackNoData, IAssetOptions, ProgressCallback, IRequest } from './shared';
 import { parseLoadResArgs, parseParameters } from './utilities';
 
 /**
@@ -235,8 +235,13 @@ export default class Bundle {
         onComplete?: CompleteCallbackWithData<T|T[]> | null,
     ) {
         const { type: _type, onProgress: onProg, onComplete: onComp } = parseLoadResArgs(type, onProgress, onComplete);
-        const options = { __requestType__: RequestType.PATH, type: _type, bundle: this.name, __outputAsArray__: Array.isArray(paths) };
-        legacyCC.assetManager.loadAny(paths, options, onProg, onComp);
+        let request: IRequest | IRequest[] | null = null;
+        if (Array.isArray(paths)) {
+            request = paths.map((path) => ({ path, type: _type, bundle: this.name }));
+        } else {
+            request = { path: paths, type: _type, bundle: this.name };
+        }
+        legacyCC.assetManager.loadAny(request, onProg, onComp);
     }
 
     /**
@@ -289,7 +294,13 @@ export default class Bundle {
         onComplete?: CompleteCallbackWithData<RequestItem[]> | null,
     ) {
         const { type: _type, onProgress: onProg, onComplete: onComp } = parseLoadResArgs(type, onProgress, onComplete);
-        legacyCC.assetManager.preloadAny(paths, { __requestType__: RequestType.PATH, type: _type, bundle: this.name }, onProg, onComp);
+        let request: IRequest | IRequest[] | null = null;
+        if (Array.isArray(paths)) {
+            request = paths.map((path) => ({ path, type: _type, bundle: this.name }));
+        } else {
+            request = { path: paths, type: _type, bundle: this.name };
+        }
+        legacyCC.assetManager.preloadAny(request, onProg, onComp);
     }
 
     /**
@@ -340,7 +351,7 @@ export default class Bundle {
         onComplete?: CompleteCallbackWithData<T[]> | null,
     ) {
         const { type: _type, onProgress: onProg, onComplete: onComp } = parseLoadResArgs(type, onProgress, onComplete);
-        legacyCC.assetManager.loadAny(dir, { __requestType__: RequestType.DIR, type: _type, bundle: this.name, __outputAsArray__: true }, onProg, onComp);
+        legacyCC.assetManager.loadAny({ dir, type: _type, bundle: this.name }, onProg, onComp);
     }
 
     /**
@@ -392,7 +403,7 @@ export default class Bundle {
         onComplete?: CompleteCallbackWithData<RequestItem[]>| null,
     ) {
         const { type: _type, onProgress: onProg, onComplete: onComp } = parseLoadResArgs(type, onProgress, onComplete);
-        legacyCC.assetManager.preloadAny(dir, { __requestType__: RequestType.DIR, type: _type, bundle: this.name }, onProg, onComp);
+        legacyCC.assetManager.preloadAny({ dir, type: _type, bundle: this.name }, onProg, onComp);
     }
 
     /**
@@ -429,8 +440,7 @@ export default class Bundle {
         const { options: opts, onProgress: onProg, onComplete: onComp } = parseParameters<CompleteCallbackWithData<SceneAsset>>(options, onProgress, onComplete);
 
         opts.preset = opts.preset || 'scene';
-        opts.bundle = this.name;
-        legacyCC.assetManager.loadAny({ scene: sceneName }, opts, onProg, (err, sceneAsset) => {
+        legacyCC.assetManager.loadAny({ scene: sceneName, bundle: this.name }, opts, onProg, (err, sceneAsset) => {
             if (err) {
                 error(err.message, err.stack);
             } else if (sceneAsset instanceof SceneAsset && sceneAsset.scene) {
@@ -482,8 +492,7 @@ export default class Bundle {
     ) {
         const { options: opts, onProgress: onProg, onComplete: onComp } = parseParameters<CompleteCallbackNoData>(options, onProgress, onComplete);
 
-        opts.bundle = this.name;
-        legacyCC.assetManager.preloadAny({ scene: sceneName }, opts, onProg, (err) => {
+        legacyCC.assetManager.preloadAny({ scene: sceneName, bundle: this.name }, opts, onProg, (err) => {
             if (err) {
                 errorID(1210, sceneName, err.message);
             }
@@ -520,78 +529,6 @@ export default class Bundle {
         }
 
         return null;
-    }
-
-    /**
-     * @en
-     * Release the asset loaded by {{#crossLink "Bundle/load:method"}}{{/crossLink}} or {{#crossLink "Bundle/loadDir:method"}}{{/crossLink}}
-     * and it's dependencies. Refer to {{#crossLink "AssetManager/releaseAsset:method"}}{{/crossLink}} for detailed informations.
-     *
-     * NOTE：The `path` and `type` parameters passed need to be the same as those passed to `Bundle.load`,
-     * otherwise it may release some other resources with the same name!
-     *
-     * @zh
-     * 释放通过 {{#crossLink "Bundle/load:method"}}{{/crossLink}} 或者 {{#crossLink "Bundle/loadDir:method"}}{{/crossLink}} 加载的资源。
-     * 详细信息请参考 {{#crossLink "AssetManager/releaseAsset:method"}}{{/crossLink}}
-     *
-     * 注意：传入的 path 与 type 参数需要与 `Bundle.load` 加载资源时传入的参数一致，否则可能会释放到其他同名资源
-     *
-     * @param path - The path of asset
-     * @param type - Only asset of type will be released if this argument is supplied.
-     *
-     * @example
-     * // release a texture which is no longer need
-     * bundle1.release('misc/character/cocos');
-     *
-     */
-    public release (path: string, type?: AssetType | null) {
-        const asset = this.get(path, type);
-        if (asset) {
-            releaseManager.tryRelease(asset, true);
-        }
-    }
-
-    /**
-     * @en
-     * Release all unused assets within this bundle. Refer to {{#crossLink "AssetManager/releaseAll:method"}}{{/crossLink}} for detailed informations.
-     *
-     * @zh
-     * 释放此包中的所有没有用到的资源。详细信息请参考 {{#crossLink "AssetManager/releaseAll:method"}}{{/crossLink}}
-     *
-     * @private
-     *
-     * @example
-     * // release all unused asset within bundle1
-     * bundle1.releaseUnusedAssets();
-     *
-     */
-    public releaseUnusedAssets () {
-        assets.forEach((asset) => {
-            const info = this.getAssetInfo(asset._uuid);
-            if (info && !info.redirect) {
-                releaseManager.tryRelease(asset);
-            }
-        });
-    }
-
-    /**
-     * @en
-     * Release all assets within this bundle. Refer to {{#crossLink "AssetManager/releaseAll:method"}}{{/crossLink}} for detailed informations.
-     *
-     * @zh
-     * 释放此包中的所有资源。详细信息请参考 {{#crossLink "AssetManager/releaseAll:method"}}{{/crossLink}}
-     *
-     * @example
-     * // release all asset within bundle1
-     * bundle1.releaseAll();
-     */
-    public releaseAll () {
-        assets.forEach((asset) => {
-            const info = this.getAssetInfo(asset._uuid);
-            if (info && !info.redirect) {
-                releaseManager.tryRelease(asset, true);
-            }
-        });
     }
 
     public _destroy () {

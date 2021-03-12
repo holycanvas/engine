@@ -61,7 +61,6 @@ export const AudioType = Enum({
 export class AudioClip extends Asset {
     public static PlayingState = PlayingState;
     public static AudioType = AudioType;
-    public static preventDeferredLoadDependents = true;
 
     @serializable
     protected _duration = 0; // we serialize this because it's unavailable at runtime on some platforms

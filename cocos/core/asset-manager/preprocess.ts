@@ -27,56 +27,51 @@
  * @packageDocumentation
  * @hidden
  */
-import { CompleteCallbackNoData, RequestType, transformPipeline } from './shared';
+import { bundles, CompleteCallbackNoData, IRequest, Request, transformPipeline } from './shared';
 import Task from './task';
 
 export default function preprocess (task: Task, done: CompleteCallbackNoData) {
-    const options = task.options;
-    const subOptions = Object.create(null);
-    const leftOptions = Object.create(null);
-
-    for (const op in options) {
-        switch (op) {
-        // can't set these attributes in options
-        case RequestType.PATH:
-        case RequestType.UUID:
-        case RequestType.DIR:
-        case RequestType.SCENE:
-        case RequestType.URL: break;
-            // only need these attributes to transform url
-        case '__requestType__':
-        case '__isNative__':
-        case 'ext':
-        case 'type':
-        case '__nativeName__':
-        case 'audioLoadMode':
-        case 'bundle':
-            subOptions[op] = options[op];
-            break;
-            // other settings, left to next pipe
-        case '__exclude__':
-        case '__outputAsArray__':
-            leftOptions[op] = options[op];
-            break;
-        default:
-            subOptions[op] = options[op];
-            leftOptions[op] = options[op];
-            break;
+    const requests = task.input as Request;
+    const originRequests = Array.isArray(requests) ? requests : [requests];
+    const req: IRequest[] = [];
+    for (const request of originRequests) {
+        if (typeof request === 'string') {
+            req.push({ uuid: request });
+        } else if (request.path && request.bundle) {
+            const bundle = bundles.get(request.bundle);
+            if (!bundle) {
+                throw new Error(`Bundle ${request.bundle} doesn't contain ${request.path}`);
+            }
+            const info = bundle.getInfoWithPath(request.path, request.type);
+            if (!info) {
+                throw new Error(`Bundle ${request.bundle} doesn't contain ${request.path}`);
+            }
+            request.uuid = info.uuid;
+            req.push(request);
+        } else if (request.dir && request.bundle) {
+            const bundle = bundles.get(request.bundle);
+            if (!bundle) {
+                throw new Error(`Bundle ${request.bundle} doesn't contain ${request.dir}`);
+            }
+            const infos = bundle.getDirWithPath(request.dir, request.type);
+            infos.forEach((info) => {
+                req.push({ uuid: info.uuid, bundle: request.bundle });
+            });
+        } else if (request.scene && request.bundle) {
+            const bundle = bundles.get(request.bundle);
+            if (!bundle) {
+                throw new Error(`Bundle ${request.bundle} doesn't contain ${request.scene}`);
+            }
+            const info = bundle.getSceneInfo(request.scene);
+            if (!info) {
+                throw new Error(`Bundle ${request.bundle} doesn't contain ${request.scene}`);
+            }
+            request.uuid = info.uuid;
+            req.push(request);
+        } else if (!request.uuid && !request.url) {
+            throw new Error(`Can not parse this input:${JSON.stringify(request)}`);
         }
     }
-    task.options = leftOptions;
-
-    // transform url
-    const subTask = Task.create({ input: task.input, options: subOptions });
-    let err = null;
-    try {
-        task.output = task.source = transformPipeline.sync(subTask);
-    } catch (e) {
-        err = e;
-        for (let i = 0, l = subTask.output.length; i < l; i++) {
-            subTask.output[i].recycle();
-        }
-    }
-    subTask.recycle();
-    done(err);
+    task.output = req;
+    done();
 }

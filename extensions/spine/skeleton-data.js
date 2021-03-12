@@ -107,11 +107,6 @@ var SkeletonData = cc.Class({
         scale: 1
     },
 
-    statics: {
-        preventDeferredLoadDependents: true,
-        preventPreloadNativeObject: true,
-    },
-
     // PUBLIC
 
     createNode: CC_EDITOR && function (callback) {

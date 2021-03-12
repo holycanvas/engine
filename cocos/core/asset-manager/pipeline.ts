@@ -257,9 +257,16 @@ export class Pipeline {
         this._flow(0, task);
     }
 
+    public asyncAll (task: Task[]): void {
+
+    }
+
     private _flow (index: number, task: Task): void {
         const pipe = this.pipes[index];
         pipe(task, (result) => {
+            if (task.cancelToken!.isCanceled === true) {
+                return;
+            }
             if (result) {
                 task.isFinish = true;
                 task.dispatch('complete', result);

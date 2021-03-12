@@ -25,7 +25,7 @@
 import { legacyCC } from '../global-exports';
 import { error } from '../platform/debug';
 import RequestItem from './request-item';
-import { bundles, Request, IOptions, transformPipeline } from './shared';
+import { bundles, Request, IAssetOptions, transformPipeline } from './shared';
 import Task from './task';
 
 const _uuidRegex = /.*[/\\][0-9a-fA-F]{2}[/\\]([0-9a-fA-F-@]{8,}).*/;
@@ -80,7 +80,7 @@ export function getUuidFromURL (url: string): string {
  * var url = getUrlWithUuid('fcmR3XADNLgJ1ByKhqcC5Z', {isNative: true, nativeExt: '.png'});
  *
  */
-export function getUrlWithUuid (uuid: string, options?: IOptions | null): string {
+export function getUrlWithUuid (uuid: string, options?: IAssetOptions | null): string {
     options = options || Object.create(null);
     options!.__isNative__ = options!.isNative;
     options!.ext = options!.nativeExt;
@@ -132,7 +132,7 @@ export function normalize (url: string): string {
     return url;
 }
 
-export function transform (input: Request, options?: IOptions | null): string | string[] {
+export function transform (input: Request, options?: IAssetOptions | null): string | string[] {
     const subTask = Task.create({ input, options });
     const urls: string[] = [];
     try {

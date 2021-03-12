@@ -72,11 +72,7 @@ export const letterFont = mixin(bmfontUtils, {
                 if (comp.font._nativeAsset) {
                     fontFamily = comp.font._nativeAsset;
                 } else {
-                    assetManager.postLoadNative(comp.font, (err) => {
-                        if (!comp.isValid) { return; }
-                        fontFamily = comp.font!._nativeAsset || 'Arial';
-                        comp.updateRenderData(true);
-                    });
+                    fontFamily = 'Arial';
                 }
             }
         } else {

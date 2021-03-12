@@ -53,17 +53,17 @@ import {
     ProgressCallback,
     IBundleOptions,
     INativeAssetOptions,
-    IOptions,
+    IAssetOptions,
     IRemoteOptions,
     presets,
     Request,
     references,
     IJsonAssetOptions,
-    assets, BuiltinBundleName, bundles, fetchPipeline, files, parsed, pipeline, transformPipeline } from './shared';
+    assets, BuiltinBundleName, bundles, fetchPipeline, files, parsed, pipeline, transformPipeline, IRequest } from './shared';
 
-import Task from './task';
+import Task, { CancelToken } from './task';
 import { combine, parse } from './url-transformer';
-import { asyncify, parseParameters } from './utilities';
+import { asyncify, parseParameters, parseRequest } from './utilities';
 
 /**
  * @zh
@@ -438,22 +438,26 @@ export class AssetManager {
      * cc.assetManager.loadAny({ url: 'http://example.com/my.asset', skin: 'xxx', model: 'xxx', userName: 'xxx', password: 'xxx' });
      *
      */
-    public loadAny (requests: Request, options: IOptions | null, onProgress: ProgressCallback | null, onComplete: CompleteCallbackWithData | null): void;
+    public loadAny (requests: Request, options: IAssetOptions | null, onProgress: ProgressCallback | null, onComplete: CompleteCallbackWithData | null): void;
     public loadAny (requests: Request, onProgress: ProgressCallback | null, onComplete: CompleteCallbackWithData | null): void;
-    public loadAny (requests: Request, options: IOptions | null, onComplete?: CompleteCallbackWithData | null): void;
+    public loadAny (requests: Request, options: IAssetOptions | null, onComplete?: CompleteCallbackWithData | null): void;
     public loadAny<T extends Asset> (requests: string, onComplete?: CompleteCallbackWithData<T> | null): void;
     public loadAny<T extends Asset> (requests: string[], onComplete?: CompleteCallbackWithData<T[]> | null): void;
     public loadAny (requests: Request, onComplete?: CompleteCallbackWithData | null): void;
     public loadAny (
         requests: Request,
-        options?: IOptions | ProgressCallback | CompleteCallbackWithData | null,
+        options?: IAssetOptions | ProgressCallback | CompleteCallbackWithData | null,
         onProgress?: ProgressCallback | CompleteCallbackWithData | null,
         onComplete?: CompleteCallbackWithData | null,
     ) {
         const { options: opts, onProgress: onProg, onComplete: onComp } = parseParameters(options, onProgress, onComplete);
         opts.preset = opts.preset || 'default';
-        requests = Array.isArray(requests) ? requests.slice() : requests;
-        const task = Task.create({ input: requests, onProgress: onProg, onComplete: asyncify(onComp), options: opts });
+        const task = Task.create();
+        task.input = requests;
+        task.onProgress = onProg;
+        task.options = opts;
+        task.cancelToken = new CancelToken();
+        task.onComplete = asyncify(onComp);
         pipeline.async(task);
     }
 
@@ -484,71 +488,23 @@ export class AssetManager {
      */
     public preloadAny (
         requests: Request,
-        options: IOptions | null,
+        options: IAssetOptions | null,
         onProgress: ProgressCallback | null,
         onComplete: CompleteCallbackWithData<RequestItem[]>|null): void;
     public preloadAny (requests: Request, onProgress: ProgressCallback | null, onComplete: CompleteCallbackWithData<RequestItem[]> | null): void;
-    public preloadAny (requests: Request, options: IOptions | null, onComplete?: CompleteCallbackWithData<RequestItem[]> | null): void;
+    public preloadAny (requests: Request, options: IAssetOptions | null, onComplete?: CompleteCallbackWithData<RequestItem[]> | null): void;
     public preloadAny (requests: Request, onComplete?: CompleteCallbackWithData<RequestItem[]> | null): void;
     public preloadAny (
         requests: Request,
-        options?: IOptions | ProgressCallback | CompleteCallbackWithData<RequestItem[]> | null,
+        options?: IAssetOptions | ProgressCallback | CompleteCallbackWithData<RequestItem[]> | null,
         onProgress?: ProgressCallback | CompleteCallbackWithData<RequestItem[]> | null,
         onComplete?: CompleteCallbackWithData<RequestItem[]> | null,
     ) {
         const { options: opts, onProgress: onProg, onComplete: onComp } = parseParameters(options, onProgress, onComplete);
         opts.preset = opts.preset || 'preload';
-        requests = Array.isArray(requests) ? requests.slice() : requests;
-        const task = Task.create({ input: requests, onProgress: onProg, onComplete: asyncify(onComp), options: opts });
+        const req: IRequest | IRequest[] | null = null;
+        const task = Task.create({ input: req, onProgress: onProg, onComplete: asyncify(onComp), options: opts });
         fetchPipeline.async(task);
-    }
-
-    /**
-     * @en
-     * Load native file of asset, if you check the option 'Async Load Assets', you may need to load native file with this before you use the asset
-     *
-     * @zh
-     * 加载资源的原生文件，如果你勾选了'延迟加载资源'选项，你可能需要在使用资源之前调用此方法来加载原生文件
-     *
-     * @param asset - The asset
-     * @param options - Some optional parameters
-     * @param onComplete - Callback invoked when finish loading
-     * @param onComplete.err - The error occured in loading process.
-     *
-     * @example
-     * cc.assetManager.postLoadNative(texture, (err) => console.log(err));
-     *
-     */
-    public postLoadNative (asset: Asset, options: INativeAssetOptions | null, onComplete: CompleteCallbackNoData | null): void;
-    public postLoadNative (asset: Asset, onComplete?: CompleteCallbackNoData | null): void;
-    public postLoadNative (asset: Asset, options?: INativeAssetOptions | CompleteCallbackNoData | null, onComplete?: CompleteCallbackNoData | null) {
-        const { options: opts, onComplete: onComp } = parseParameters<CompleteCallbackNoData>(options, undefined, onComplete);
-
-        if (!asset._native || !asset.__nativeDepend__) {
-            asyncify(onComp)(null);
-            return;
-        }
-
-        const depend = dependUtil.getNativeDep(asset._uuid);
-        if (!depend) { return; }
-        if (!bundles.has(depend.bundle)) {
-            const bundle = bundles.find((b) => !!b.getAssetInfo(asset._uuid));
-            if (bundle) {
-                depend.bundle = bundle.name;
-            }
-        }
-
-        this.loadAny(depend, opts, (err, native) => {
-            if (!err) {
-                if (asset.isValid && asset.__nativeDepend__) {
-                    asset._nativeAsset = native;
-                    asset.__nativeDepend__ = false;
-                }
-            } else {
-                error(err.message, err.stack);
-            }
-            if (onComp) { onComp(err); }
-        });
     }
 
     /**
@@ -638,60 +594,6 @@ export class AssetManager {
                     if (onComp) { onComp(p1, p2 as Bundle); }
                 });
             }
-        });
-    }
-
-    /**
-     * @en
-     * Release asset and it's dependencies.
-     * This method will not only remove the cache of the asset in assetManager, but also clean up its content.
-     * For example, if you release a texture, the texture asset and its gl texture data will be freed up.
-     * Notice, this method may cause the texture to be unusable, if there are still other nodes use the same texture,
-     * they may turn to black and report gl errors.
-     *
-     * @zh
-     * 释放资源以及其依赖资源, 这个方法不仅会从 assetManager 中删除资源的缓存引用，还会清理它的资源内容。
-     * 比如说，当你释放一个 texture 资源，这个 texture 和它的 gl 贴图数据都会被释放。
-     * 注意，这个函数可能会导致资源贴图或资源所依赖的贴图不可用，如果场景中存在节点仍然依赖同样的贴图，它们可能会变黑并报 GL 错误。
-     *
-     * @param asset - The asset to be released
-     *
-     * @example
-     * // release a texture which is no longer need
-     * cc.assetManager.releaseAsset(texture);
-     *
-     */
-    public releaseAsset (asset: Asset): void {
-        releaseManager.tryRelease(asset, true);
-    }
-
-    /**
-     * @en
-     * Release all unused assets. Refer to {{#crossLink "AssetManager/releaseAsset:method"}}{{/crossLink}} for detailed informations.
-     *
-     * @zh
-     * 释放所有没有用到的资源。详细信息请参考 {{#crossLink "AssetManager/releaseAsset:method"}}{{/crossLink}}
-     *
-     * @hidden
-     *
-     */
-    public releaseUnusedAssets () {
-        assets.forEach((asset) => {
-            releaseManager.tryRelease(asset);
-        });
-    }
-
-    /**
-     * @en
-     * Release all assets. Refer to {{#crossLink "AssetManager/releaseAsset:method"}}{{/crossLink}} for detailed informations.
-     *
-     * @zh
-     * 释放所有资源。详细信息请参考 {{#crossLink "AssetManager/releaseAsset:method"}}{{/crossLink}}
-     *
-     */
-    public releaseAll () {
-        assets.forEach((asset) => {
-            releaseManager.tryRelease(asset, true);
         });
     }
 

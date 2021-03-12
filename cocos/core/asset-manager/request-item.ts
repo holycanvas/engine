@@ -159,6 +159,8 @@ export default class RequestItem {
      */
     public options: Record<string, any> = Object.create(null);
 
+    public loadDepends = false;
+
     private _id = '';
 
     /**
@@ -180,6 +182,7 @@ export default class RequestItem {
         this.info = null;
         this.config = null;
         this.isNative = false;
+        this.loadDepends = false;
         this.options = Object.create(null);
         RequestItem._deadPool.push(this);
     }

@@ -288,9 +288,6 @@ export class Mesh extends Asset {
     };
 
     @serializable
-    private _dataLength = 0;
-
-    @serializable
     private _hash = 0;
 
     private _data: Uint8Array = globalEmptyMeshBuffer;
@@ -314,13 +311,6 @@ export class Mesh extends Asset {
         }
 
         this._initialized = true;
-
-        if (this._data.byteLength !== this._dataLength) {
-        // In the case of deferred loading, `this._data` is created before
-        // the actual binary buffer is loaded.
-            this._data = new Uint8Array(this._dataLength);
-            legacyCC.assetManager.postLoadNative(this);
-        }
         const { buffer } = this._data;
         const gfxDevice: Device = legacyCC.director.root.device;
         const vertexBuffers = this._createVertexBuffers(gfxDevice, buffer);
@@ -444,7 +434,6 @@ export class Mesh extends Asset {
         this.destroyRenderingMesh();
         this._struct = info.struct;
         this._data = info.data;
-        this._dataLength = this.data.byteLength;
         this._hash = 0;
         this.loaded = true;
         this.emit('load');

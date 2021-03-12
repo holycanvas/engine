@@ -37,6 +37,7 @@ import { CCObject } from '../data/object';
 import { Node } from '../scene-graph';
 import { legacyCC } from '../global-exports';
 import { extname } from '../utils/path';
+import { IRequest } from '../asset-manager/shared';
 
 /**
  * @en
@@ -61,20 +62,6 @@ import { extname } from '../utils/path';
  */
 @ccclass('cc.Asset')
 export class Asset extends Eventify(CCObject) {
-    /**
-     * @en Indicates whether its dependent native assets can support deferred load if the owner scene (or prefab) is marked as `asyncLoadAssets`.
-     * @zh 当场景或 Prefab 被标记为 `asyncLoadAssets`，禁止延迟加载该资源所依赖的其它原始资源。
-     * @default false
-     */
-    public static preventDeferredLoadDependents = false;
-
-    /**
-     * @en Indicates whether its native object should be preloaded from native url.
-     * @zh 禁止预加载原生对象。
-     * @default false
-     */
-    public static preventPreloadNativeObject = false;
-
     /**
      * 应 AssetDB 要求提供这个方法。
      * @method deserialize
@@ -108,11 +95,9 @@ export class Asset extends Eventify(CCObject) {
     // only for internal use
     public __onLoadedInvoked__ = false;
     public __nativeDepend__: any = null;
-    public __asyncLoadAssets__ = false;
     public __depends__: any = null;
 
     private _file: any = null;
-    private _ref = 0;
 
     /**
      * @en
@@ -235,56 +220,11 @@ export class Asset extends Eventify(CCObject) {
      */
     public createNode? (callback: CreateNodeCallback): void;
 
-    public get _nativeDep () {
+    public get _nativeDep (): IRequest | null {
         if (this._native) {
             return { __isNative__: true, uuid: this._uuid, ext: this._native };
         }
-    }
-
-    /**
-     * @en
-     * The number of reference
-     *
-     * @zh
-     * 引用的数量
-     */
-    public get refCount (): number {
-        return this._ref;
-    }
-
-    /**
-     * @en
-     * Add references of asset
-     *
-     * @zh
-     * 增加资源的引用
-     *
-     * @return itself
-     *
-     */
-    public addRef (): Asset {
-        this._ref++;
-        return this;
-    }
-
-    /**
-     * @en
-     * Reduce references of asset and it will be auto released when refCount equals 0.
-     *
-     * @zh
-     * 减少资源的引用并尝试进行自动释放。
-     *
-     * @return itself
-     *
-     */
-    public decRef (autoRelease = true): Asset {
-        if (this._ref > 0) {
-            this._ref--;
-        }
-        if (autoRelease) {
-            legacyCC.assetManager._releaseManager.tryRelease(this);
-        }
-        return this;
+        return null;
     }
 
     public onLoaded () {}

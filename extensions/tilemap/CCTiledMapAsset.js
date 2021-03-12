@@ -54,10 +54,6 @@ let TiledMapAsset = cc.Class({
         tsxFileNames: [cc.String],
     },
 
-    statics: {
-        preventDeferredLoadDependents: true
-    },
-
     createNode: CC_EDITOR && function (callback) {
         let node = new cc.Node(this.name);
         let tiledMap = node.addComponent(cc.TiledMap);

@@ -83,42 +83,6 @@ function visitNode (node: any, deps: string[]) {
     }
 }
 
-function descendOpRef (asset: Asset, refs: Record<string, number>, exclude: string[], op: number) {
-    exclude.push(asset._uuid);
-    const depends = dependUtil.getDeps(asset._uuid);
-    for (let i = 0, l = depends.length; i < l; i++) {
-        const dependAsset = assets.get(depends[i]);
-        if (!dependAsset) { continue; }
-        const uuid = dependAsset._uuid;
-        if (!(uuid in refs)) {
-            refs[uuid] = dependAsset.refCount + op;
-        } else {
-            refs[uuid] += op;
-        }
-        if (exclude.includes(uuid)) { continue; }
-        descendOpRef(dependAsset, refs, exclude, op);
-    }
-}
-
-const _temp = [];
-function checkCircularReference (asset: Asset): number {
-    // check circular reference
-    const refs: Record<string, number> = Object.create(null);
-    refs[asset._uuid] = asset.refCount;
-    descendOpRef(asset, refs, _temp, -1);
-    _temp.length = 0;
-    if (refs[asset._uuid] !== 0) { return refs[asset._uuid]; }
-
-    for (const uuid in refs) {
-        if (refs[uuid] !== 0) {
-            descendOpRef(assets.get(uuid)!, refs, _temp, 1);
-        }
-    }
-    _temp.length = 0;
-
-    return refs[asset._uuid];
-}
-
 class ReleaseManager {
     private _persistNodeDeps = new Cache<string[]>();
     private _toDelete = new Cache<Asset>();
@@ -127,75 +91,6 @@ class ReleaseManager {
     public init (): void {
         this._persistNodeDeps.clear();
         this._toDelete.clear();
-    }
-
-    public _addPersistNodeRef (node: Node) {
-        const deps = [];
-        visitNode(node, deps);
-        for (let i = 0, l = deps.length; i < l; i++) {
-            const dependAsset = assets.get(deps[i]);
-            if (dependAsset) {
-                dependAsset.addRef();
-            }
-        }
-        this._persistNodeDeps.add(node.uuid, deps);
-    }
-
-    public _removePersistNodeRef (node: Node) {
-        if (!this._persistNodeDeps.has(node.uuid)) { return; }
-
-        const deps = this._persistNodeDeps.get(node.uuid) as string[];
-        for (let i = 0, l = deps.length; i < l; i++) {
-            const dependAsset = assets.get(deps[i]);
-            if (dependAsset) {
-                dependAsset.decRef();
-            }
-        }
-        this._persistNodeDeps.remove(node.uuid);
-    }
-
-    // do auto release
-    public _autoRelease (oldScene: Scene, newScene: Scene, persistNodes: Record<string, Node>) {
-        if (oldScene) {
-            const childs = dependUtil.getDeps(oldScene.uuid);
-            for (let i = 0, l = childs.length; i < l; i++) {
-                const asset = assets.get(childs[i]);
-                if (asset) {
-                    asset.decRef(TEST || oldScene.autoReleaseAssets);
-                }
-            }
-
-            const dependencies = dependUtil._depends.get(oldScene.uuid);
-            if (dependencies && dependencies.persistDeps) {
-                const persistDeps = dependencies.persistDeps;
-                for (let i = 0, l = persistDeps.length; i < l; i++) {
-                    const asset = assets.get(persistDeps[i]);
-                    if (asset) {
-                        asset.decRef(TEST || oldScene.autoReleaseAssets);
-                    }
-                }
-            }
-
-            if (oldScene.uuid !== newScene.uuid) {
-                dependUtil.remove(oldScene.uuid);
-            }
-        }
-
-        // transfer refs from persist nodes to new scene
-        const sceneDeps = dependUtil._depends.get(newScene.uuid);
-        if (sceneDeps) { sceneDeps.persistDeps = []; }
-        for (const key in persistNodes) {
-            const node = persistNodes[key];
-            const deps = this._persistNodeDeps.get(node.uuid) as string[];
-            for (const dep of deps) {
-                const dependAsset = assets.get(dep);
-                if (dependAsset) {
-                    dependAsset.addRef();
-                }
-            }
-            if (!sceneDeps) { continue; }
-            sceneDeps.persistDeps!.push(...deps);
-        }
     }
 
     public tryRelease (asset: Asset, force = false): void {
@@ -226,25 +121,8 @@ class ReleaseManager {
 
         if (!isValid(asset, true)) { return; }
 
-        if (!force) {
-            if (asset.refCount > 0) {
-                if (checkCircularReference(asset) > 0) { return; }
-            }
-        }
-
         // remove from cache
         assets.remove(uuid);
-        const depends = dependUtil.getDeps(uuid);
-        for (let i = 0, l = depends.length; i < l; i++) {
-            const dependAsset = assets.get(depends[i]);
-            if (dependAsset) {
-                dependAsset.decRef(false);
-                // no need to release dependencies recursively in editor
-                if (!EDITOR) {
-                    this._free(dependAsset, false);
-                }
-            }
-        }
         // only release non-gc asset in editor
         if (!EDITOR || (asset instanceof ImageAsset || asset instanceof TextureBase)) {
             asset.destroy();

@@ -538,11 +538,7 @@ export class RichText extends UIComponent {
                 this._layoutDirty = true;
                 this._updateRichText();
             } else {
-                assetManager.postLoadNative(this._font, (err) => {
-                    if (!this.isValid) { return; }
-                    this._layoutDirty = true;
-                    this._updateRichText();
-                });
+                this._layoutDirty = true;
             }
         } else {
             this._layoutDirty = true;

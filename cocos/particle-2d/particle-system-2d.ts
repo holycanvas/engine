@@ -719,7 +719,6 @@ export class ParticleSystem2D extends Renderable2D {
     private _positionType = PositionType.FREE;
 
     private _stopped = true;
-    private _deferredloaded = false;
     private declare _previewTimer;
     private declare _focused: boolean;
     private declare _plistFile;
@@ -875,38 +874,25 @@ export class ParticleSystem2D extends Renderable2D {
     // PRIVATE METHODS
     public _applyFile () {
         const file = this._file;
-        if (file) {
-            const applyTemp = (err: any) => {
-                if (err || !file) {
-                    errorID(6029);
-                    return;
-                }
-                if (!this.isValid) {
-                    return;
-                }
-                this._plistFile = file.nativeUrl;
-                if (!this._custom) {
-                    const isDiffFrame = this._spriteFrame !== file.spriteFrame;
-                    if (isDiffFrame) this.spriteFrame = file.spriteFrame;
-                    this._initWithDictionary(file._nativeAsset);
-                }
+        if (file && file._nativeAsset) {
+            if (!this.isValid) {
+                return;
+            }
+            this._plistFile = file.nativeUrl;
+            if (!this._custom) {
+                const isDiffFrame = this._spriteFrame !== file.spriteFrame;
+                if (isDiffFrame) this.spriteFrame = file.spriteFrame;
+                this._initWithDictionary(file._nativeAsset);
+            }
 
-                if (!this._spriteFrame) {
-                    if (file.spriteFrame) {
-                        this.spriteFrame = file.spriteFrame;
-                    } else if (this._custom) {
-                        this._initTextureWithDictionary(file._nativeAsset);
-                    }
-                } else if (!this._renderSpriteFrame && this._spriteFrame) {
-                    this._applySpriteFrame();
+            if (!this._spriteFrame) {
+                if (file.spriteFrame) {
+                    this.spriteFrame = file.spriteFrame;
+                } else if (this._custom) {
+                    this._initTextureWithDictionary(file._nativeAsset);
                 }
-                this._deferredloaded = false;
-            };
-            if (file._nativeAsset) {
-                applyTemp(null);
-            } else {
-                this._deferredloaded = true;
-                assetManager.postLoadNative(file, applyTemp);
+            } else if (!this._renderSpriteFrame && this._spriteFrame) {
+                this._applySpriteFrame();
             }
         }
     }
@@ -1149,7 +1135,7 @@ export class ParticleSystem2D extends Renderable2D {
     }
 
     protected _canRender () {
-        return super._canRender() && !this._stopped && !this._deferredloaded && this._renderSpriteFrame !== null;
+        return super._canRender() && !this._stopped && this._renderSpriteFrame !== null;
     }
 
     protected _render (render: Batcher2D) {

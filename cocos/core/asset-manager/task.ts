@@ -29,13 +29,22 @@
 export type TaskCompleteCallback = (err: Error | null | undefined, data: any) => void;
 export type TaskProgressCallback = (...args: any[]) => void;
 export type TaskErrorCallback = (...args: any[]) => void;
+interface ITaskProgress {
+    finish: number;
+    total: number;
+}
 export interface ITaskOption {
     onComplete?: TaskCompleteCallback | null;
     onProgress?: TaskProgressCallback | null;
     onError?: TaskErrorCallback | null;
     input: any;
-    progress?: any;
+    progress?: ITaskProgress | null;
     options?: Record<string, any> | null;
+    cancelToken?: CancelToken;
+}
+
+export class CancelToken {
+    public isCanceled = false;
 }
 
 /**
@@ -68,7 +77,7 @@ export default class Task {
      * @returns task
      *
      */
-    public static create (options: ITaskOption): Task {
+    public static create (options?: ITaskOption): Task {
         let out: Task;
         if (Task._deadPool.length !== 0) {
             out = Task._deadPool.pop() as Task;
@@ -123,15 +132,9 @@ export default class Task {
      */
     public onError: TaskErrorCallback | null = null;
 
-    /**
-     * @en
-     * The source of task
-     *
-     * @zh
-     * 任务的源
-     *
-     */
-    public source: any = null;
+    public subTasks: Task[] | null = null;
+
+    public cancelToken: CancelToken | null = null;
 
     /**
      * @en
@@ -228,6 +231,8 @@ export default class Task {
         this.source = this.input = options.input;
         this.output = null;
         this.progress = options.progress;
+        this.exclude = options.exclude;
+        this.cancelToken = options.cancelToken || null;
         // custom data
         this.options = options.options || Object.create(null);
     }
@@ -294,6 +299,8 @@ export default class Task {
         this.source = this.output = this.input = null;
         this.progress = null;
         this.options = null;
+        this.subTask = null;
+        this.cancelToken = null;
         Task._deadPool.push(this);
     }
 }

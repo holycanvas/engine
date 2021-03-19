@@ -185,6 +185,8 @@ export default class Task {
      */
     public isFinish = true;
 
+    public period = -1;
+
     /**
      * @en
      * Create a new Task
@@ -283,6 +285,9 @@ export default class Task {
         }
     }
 
+    public done (err?: Error | null) {
+        this.period++;
+    }
     /**
      * @en
      * Recycle this for reuse

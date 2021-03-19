@@ -94,14 +94,81 @@ export default function load (task: Task, done: CompleteCallbackNoData) {
 
 const loadOneAssetPipeline = new Pipeline('loadOneAsset', [
 
-    function transform (task: TransformTask, done) {
-        let err = null;
-        try {
-            transformPipeline.sync(task);
-        } catch (e) {
-            err = e;
+    function parse (task: Task) {
+        const options = task.options;
+        const item = task.input;
+        // local options will overlap glabal options
+        js.addon(item, options);
+        if (item.preset) {
+            js.addon(item, presets[item.preset]);
         }
-        done(err);
+        if (item.uuid) {
+            const uuid = decodeUuid(item.uuid);
+            let config: Config | null = null;
+            let info: IAssetInfo | null = null;
+            if (!item.bundle) {
+                const bundle = bundles.find((bundle) => !!bundle.getAssetInfo(uuid));
+                item.bundle = (bundle && bundle.name) || '';
+            }
+            if (bundles.has(item.bundle)) {
+                config = bundles.get(item.bundle)!.config;
+                info = config.getAssetInfo(uuid);
+                if (info && info.redirect) {
+                    if (!bundles.has(info.redirect)) { throw new Error(`Please load bundle ${info.redirect} first`); }
+                    config = bundles.get(info.redirect)!.config;
+                    info = config.getAssetInfo(uuid);
+                }
+            }
+            const out: RequestItem = RequestItem.create();
+            out.uuid = uuid;
+            out.config = config;
+            out.info = info;
+            out.ext = item.ext || '.json';
+            out.isNative = item.__isNative__;
+            task.output = out;
+        } else if (item.url) {
+            const out: RequestItem = RequestItem.create();
+            out.url = item.url;
+            out.uuid = item.uuid || item.url;
+            out.ext = item.ext || path.extname(item.url);
+            out.isNative = item.__isNative__ !== undefined ? item.__isNative__ : true;
+            task.output = out;
+        }
+    },
+
+    function combine (task: Task) {
+        const input = task.output = task.input;
+        const item = input as RequestItem;
+        if (!item.url) {
+            let url = '';
+            let base = '';
+            const config = item.config;
+            if (item.isNative) {
+                base = (config && config.nativeBase) ? (config.base + config.nativeBase) : legacyCC.assetManager.generalNativeBase;
+            } else {
+                base = (config && config.importBase) ? (config.base + config.importBase) : legacyCC.assetManager.generalImportBase;
+            }
+
+            const uuid = item.uuid;
+
+            let ver = '';
+            if (item.info) {
+                if (item.isNative) {
+                    ver = item.info.nativeVer ? (`.${item.info.nativeVer}`) : '';
+                } else {
+                    ver = item.info.ver ? (`.${item.info.ver}`) : '';
+                }
+            }
+
+            // ugly hack, WeChat does not support loading font likes 'myfont.dw213.ttf'. So append hash to directory
+            if (item.ext === '.ttf') {
+                url = `${base}/${uuid.slice(0, 2)}/${uuid}${ver}/${item.options.__nativeName__}`;
+            } else {
+                url = `${base}/${uuid.slice(0, 2)}/${uuid}${ver}${item.ext}`;
+            }
+
+            item.url = url;
+        }
     },
 
     function fetch (task, done) {
@@ -151,16 +218,16 @@ const loadOneAssetPipeline = new Pipeline('loadOneAsset', [
         }
     },
 
-    function loadDepends (task, done) {
+    function loadDepends (task) {
         const { input: item, progress } = task;
         if (!item.loadDepends) {
-            done();
+            task.done();
             return;
         }
 
         const { uuid, config, content: asset } = item as RequestItem;
         if (task.options!.__exclude__[uuid]) {
-            done();
+            task.done();
             return;
         }
 
@@ -186,7 +253,7 @@ const loadOneAssetPipeline = new Pipeline('loadOneAsset', [
         task.subTask = subTask;
     },
 
-    function initialize (task, done) {
+    function initialize (task) {
         const { input: item, progress } = task;
         const id = item.id;
         if (task.subTask) {
@@ -218,6 +285,6 @@ const loadOneAssetPipeline = new Pipeline('loadOneAsset', [
         if (progress.canInvoke) {
             task.dispatch('progress', ++progress.finish, progress.total, item);
         }
-        done();
+        task.done();
     },
 ]);

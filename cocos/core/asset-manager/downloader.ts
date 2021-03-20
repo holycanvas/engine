@@ -329,6 +329,9 @@ export class Downloader {
         return import(`virtual:///prerequisite-imports/${bundleName}`);
     }
 
+    public update () {
+        
+    }
     /**
      * @en
      * Use corresponding handler to download file under limitation

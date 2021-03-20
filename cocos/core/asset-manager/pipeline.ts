@@ -30,9 +30,9 @@ import { warnID } from '../platform/debug';
 import { CompleteCallbackNoData } from './shared';
 import Task from './task';
 
-export type IAsyncPipe = (task: Task, done: CompleteCallbackNoData) => void;
-export type ISyncPipe = (task: Task) => Error | void;
-export type IPipe = IAsyncPipe | ISyncPipe;
+export type IAsyncPipe<T> = (task: T) => void;
+export type ISyncPipe<T> = (task: T) => Error | void;
+export type IPipe<T> = IAsyncPipe<T> | ISyncPipe<T>;
 
 /**
  * @en
@@ -42,7 +42,7 @@ export type IPipe = IAsyncPipe | ISyncPipe;
  * 管线能执行任务达到某个效果
  *
  */
-export class Pipeline {
+export class Pipeline<T extends Task> {
     private static _pipelineId = 0;
 
     /**
@@ -73,7 +73,11 @@ export class Pipeline {
      * 所有的管道
      *
      */
-    public pipes: IPipe[] = [];
+    public pipes: IPipe<T>[] = [];
+
+    public queue: T[] = [];
+
+    public maxConcurrency = Number.MAX_VALUE;
 
     /**
      * @en
@@ -104,7 +108,7 @@ export class Pipeline {
      * ]);
      *
      */
-    constructor (name: string, funcs: IPipe[]) {
+    constructor (name: string, funcs: IPipe<T>[]) {
         this.name = name;
         for (let i = 0, l = funcs.length; i < l; i++) {
             this.pipes.push(funcs[i]);
@@ -132,7 +136,7 @@ export class Pipeline {
      * }, 0);
      *
      */
-    public insert (func: IPipe, index: number): Pipeline {
+    public insert (func: IPipe<T>, index: number): Pipeline<T> {
         if (index > this.pipes.length) {
             warnID(4921);
             return this;
@@ -162,7 +166,7 @@ export class Pipeline {
      * });
      *
      */
-    public append (func: IPipe): Pipeline {
+    public append (func: IPipe<T>): Pipeline<T> {
         this.pipes.push(func);
         return this;
     }
@@ -185,7 +189,7 @@ export class Pipeline {
      * pipeline.remove(0);
      *
      */
-    public remove (index: number): Pipeline {
+    public remove (index: number): Pipeline<T> {
         this.pipes.splice(index, 1);
         return this;
     }
@@ -210,12 +214,12 @@ export class Pipeline {
      * console.log(pipeline.sync(task));
      *
      */
-    public sync (task: Task): any {
+    public sync (task: T): any {
         const pipes = this.pipes;
         if (pipes.length === 0) { return null; }
         task.isFinish = false;
         for (let i = 0, l = pipes.length; i < l;) {
-            const pipe = pipes[i] as ISyncPipe;
+            const pipe = pipes[i] as ISyncPipe<T>;
             const result = pipe(task);
             if (result) {
                 task.isFinish = true;
@@ -250,15 +254,34 @@ export class Pipeline {
      * pipeline.async(task);
      *
      */
-    public async (task: Task): void {
+    public async (task: T): void {
         const pipes = this.pipes;
         if (pipes.length === 0) { return; }
         task.isFinish = false;
-        this._flow(0, task);
+        this.queue.push(task);
     }
 
-    public asyncAll (task: Task[]): void {
+    public asyncAll (tasks: T[]): void {
+        this.queue.push(...tasks);
+    }
 
+    public execute () {
+        const length = Math.min(this.maxConcurrency, this.queue.length);
+        for (let i = 0; i < length; i++) {
+            const task = this.queue[i];
+            for (let j = 0; j < this.pipes.length; j++) {
+                if (task.error) {
+                    task.dispatch('error');
+                } else if (task.cancelToken?.isCanceled) {
+                    task.cancel();
+                } else if (task.dependsFinished && task.period > this.pipes.length) {
+                    task.complete();
+                } else if (task.dependsFinished && task.executed !== task.period) {
+                    this.pipes[task.period](task);
+                    task.executed++;
+                }
+            }
+        }
     }
 
     private _flow (index: number, task: Task): void {

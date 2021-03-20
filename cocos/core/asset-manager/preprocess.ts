@@ -27,11 +27,13 @@
  * @packageDocumentation
  * @hidden
  */
-import { bundles, CompleteCallbackNoData, IRequest, Request, transformPipeline } from './shared';
+import { js } from '../utils/js';
+import { bundles, CompleteCallbackNoData, IRequest, presets, Request, transformPipeline } from './shared';
 import Task from './task';
 
-export default function preprocess (task: Task, done: CompleteCallbackNoData) {
+export default function preprocess (task: Task) {
     const requests = task.input as Request;
+    const options = task.options;
     const originRequests = Array.isArray(requests) ? requests : [requests];
     const req: IRequest[] = [];
     for (const request of originRequests) {
@@ -72,6 +74,28 @@ export default function preprocess (task: Task, done: CompleteCallbackNoData) {
             throw new Error(`Can not parse this input:${JSON.stringify(request)}`);
         }
     }
+    req.forEach(item => {
+        js.addon(item, options);
+        if (item.preset) {
+            js.addon(item, presets[item.preset]);
+        }
+        const uuid = decodeUuid(item.uuid);
+        let config: Config | null = null;
+        let info: IAssetInfo | null = null;
+        if (!item.bundle) {
+            const bundle = bundles.find((bundle) => !!bundle.getAssetInfo(uuid));
+            item.bundle = (bundle && bundle.name) || '';
+        }
+        if (bundles.has(item.bundle)) {
+            config = bundles.get(item.bundle)!.config;
+            info = config.getAssetInfo(uuid);
+            if (info && info.redirect) {
+                if (!bundles.has(info.redirect)) { throw new Error(`Please load bundle ${info.redirect} first`); }
+                config = bundles.get(info.redirect)!.config;
+                info = config.getAssetInfo(uuid);
+            }
+        }
+    })
     task.output = req;
     done();
 }

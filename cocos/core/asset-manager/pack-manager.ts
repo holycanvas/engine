@@ -200,16 +200,6 @@ export class PackManager {
      *
      */
     public load (item: RequestItem, options: IDownloadParseOptions | null, onComplete: CompleteCallback): void {
-        // if not in any package, download as uausl
-        if (item.isNative || !item.info || !item.info.packs) {
-            downloader.download(item.id, item.url, item.ext, item.options, onComplete);
-            return;
-        }
-
-        if (files.has(item.id)) {
-            onComplete(null, files.get(item.id));
-            return;
-        }
 
         const packs = item.info.packs;
 

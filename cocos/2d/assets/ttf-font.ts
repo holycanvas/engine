@@ -40,7 +40,6 @@ import { legacyCC } from '../../core/global-exports';
  */
 @ccclass('cc.TTFFont')
 export class TTFFont extends Font {
-    @serializable
     public _fontFamily: any = null;
 
     @override
@@ -50,11 +49,6 @@ export class TTFFont extends Font {
     }
     set _nativeAsset (value) {
         this._fontFamily = value || 'Arial';
-    }
-
-    @override
-    get _nativeDep () {
-        return { uuid: this._uuid, __nativeName__: this._native, ext: extname(this._native), __isNative__: true };
     }
 }
 

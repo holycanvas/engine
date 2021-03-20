@@ -28,6 +28,8 @@
  */
 
 import Config, { IAssetInfo } from './config';
+import { ILowLevelRequest } from './shared';
+import Task from './task';
 
 /**
  * @en
@@ -37,45 +39,7 @@ import Config, { IAssetInfo } from './config';
  * 请求的相关信息集合
  *
  */
-export default class RequestItem {
-    /**
-     * @en
-     * The id of request, combined from uuid and isNative
-     *
-     * @zh
-     * 请求的 id, 由 uuid 和 isNative 组合而成
-     */
-    get id (): string {
-        if (!this._id) {
-            this._id = `${this.uuid}@${this.isNative ? 'native' : 'import'}`;
-        }
-        return this._id;
-    }
-
-    public static MAX_DEAD_NUM = 500;
-
-    /**
-     * @en
-     * Create a new request item from pool
-     *
-     * @zh
-     * 从对象池中创建 requestItem
-     *
-     * @returns requestItem
-     *
-     */
-    public static create (): RequestItem {
-        let out: RequestItem;
-        if (RequestItem._deadPool.length !== 0) {
-            out = RequestItem._deadPool.pop() as RequestItem;
-        } else {
-            out = new RequestItem();
-        }
-
-        return out;
-    }
-
-    private static _deadPool: RequestItem[] = [];
+export default class RequestItem extends Task {
 
     /**
      * @en
@@ -105,7 +69,7 @@ export default class RequestItem {
      * 资源的扩展名
      *
      */
-    public ext = '.json';
+    public ext = '';
 
     /**
      * @en
@@ -141,27 +105,17 @@ export default class RequestItem {
 
     /**
      * @en
-     * Whether or not it is native asset
-     *
-     * @zh
-     * 资源是否是原生资源
-     *
-     */
-    public isNative = false;
-
-    /**
-     * @en
      * Custom options
      *
      * @zh
      * 自定义参数
      *
      */
-    public options: Record<string, any> = Object.create(null);
+    public declare options: ILowLevelRequest;
 
-    public loadDepends = false;
+    public declare input: ILowLevelRequest;
 
-    private _id = '';
+    public declare subTasks: RequestItem[];
 
     /**
      * @en
@@ -171,19 +125,17 @@ export default class RequestItem {
      * 回收 requestItem 用于复用
      *
      */
-    public recycle (): void {
-        if (RequestItem._deadPool.length === RequestItem.MAX_DEAD_NUM) { return; }
-        this._id = '';
-        this.uuid = '';
-        this.url = '';
-        this.ext = '.json';
-        this.content = null;
-        this.file = null;
-        this.info = null;
-        this.config = null;
-        this.isNative = false;
-        this.loadDepends = false;
-        this.options = Object.create(null);
-        RequestItem._deadPool.push(this);
+    public recycle (): boolean {
+        if (super.recycle()) {
+            this.uuid = '';
+            this.url = '';
+            this.ext = '';
+            this.content = null;
+            this.file = null;
+            this.info = null;
+            this.config = null;
+            return true;
+        }
+        return false;
     }
 }

@@ -27,21 +27,8 @@
  * @module asset-manager
  */
 export type TaskCompleteCallback = (err: Error | null | undefined, data: any) => void;
-export type TaskProgressCallback = (...args: any[]) => void;
 export type TaskErrorCallback = (...args: any[]) => void;
-interface ITaskProgress {
-    finish: number;
-    total: number;
-}
-export interface ITaskOption {
-    onComplete?: TaskCompleteCallback | null;
-    onProgress?: TaskProgressCallback | null;
-    onError?: TaskErrorCallback | null;
-    input: any;
-    progress?: ITaskProgress | null;
-    options?: Record<string, any> | null;
-    cancelToken?: CancelToken;
-}
+export type TaskCancelCallback = (...args: any[]) => void;
 
 export class CancelToken {
     public isCanceled = false;
@@ -67,30 +54,23 @@ export default class Task {
      *
      * @static
      * @method create
-     * @param options - Some optional paramters
-     * @param options.onComplete - Callback when the task complete, if the pipeline is synchronous, onComplete is unnecessary.
-     * @param options.onProgress - Continuously callback when the task is runing, if the pipeline is synchronous, onProgress is unnecessary.
-     * @param options.onError - Callback when something goes wrong, if the pipeline is synchronous, onError is unnecessary.
-     * @param options.input - Something will be handled with pipeline
-     * @param options.progress - Progress information, you may need to assign it manually when multiple pipeline share one progress
-     * @param options.options - Custom parameters
      * @returns task
      *
      */
-    public static create (options?: ITaskOption): Task {
-        let out: Task;
-        if (Task._deadPool.length !== 0) {
-            out = Task._deadPool.pop() as Task;
-            out.set(options);
+    public static create<T extends Task> (type: Constructor<T>): T {
+        let out: T;
+        const deadPool = Task._deadPool.get(type);
+        if (deadPool && deadPool.length > 0) {
+            out = deadPool.pop() as T;
         } else {
-            out = new Task(options);
+            out = new type();
         }
 
         return out;
     }
 
     private static _taskId = 0;
-    private static _deadPool: Task[] = [];
+    private static _deadPool: WeakMap<Constructor<Task>, Task[]> = new WeakMap();
 
     /**
      * @en
@@ -120,7 +100,7 @@ export default class Task {
      * 进度回调
      *
      */
-    public onProgress: TaskProgressCallback | null = null;
+    public onCancel: TaskCancelCallback | null = null;
 
     /**
      * @en
@@ -132,7 +112,7 @@ export default class Task {
      */
     public onError: TaskErrorCallback | null = null;
 
-    public subTasks: Task[] | null = null;
+    public subTasks: Task[] = [];
 
     public cancelToken: CancelToken | null = null;
 
@@ -157,16 +137,6 @@ export default class Task {
 
     /**
      * @en
-     * The progression of task
-     *
-     * @zh
-     * 任务的进度
-     *
-     */
-    public progress: any = null;
-
-    /**
-     * @en
      * Custom options
      *
      * @zh
@@ -185,58 +155,53 @@ export default class Task {
      */
     public isFinish = true;
 
-    public period = -1;
+    public error: Error | null = null;
 
-    /**
-     * @en
-     * Create a new Task
-     *
-     * @zh
-     * 创建一个任务
-     *
-     * @param options - Some optional paramters
-     * @param options.onComplete - Callback when the task is completed, if the pipeline is synchronous, onComplete is unnecessary.
-     * @param options.onProgress - Continuously callback when the task is runing, if the pipeline is synchronous, onProgress is unnecessary.
-     * @param options.onError - Callback when something goes wrong, if the pipeline is synchronous, onError is unnecessary.
-     * @param options.input - Something will be handled with pipeline
-     * @param options.progress - Progress information, you may need to assign it manually when multiple pipeline share one progress
-     * @param options.options - Custom parameters
-     */
-    public constructor (options?: ITaskOption) {
-        this.set(options);
+    public executed = -1;
+
+    public period = 0;
+
+    public priority = -1;
+
+    public get dependsFinished () {
+        return this.dependFinishCount === this.dependTotalCount;
     }
 
-    /**
-     * @en
-     * Set paramters of this task
-     *
-     * @zh
-     * 设置任务的参数
-     *
-     * @param options - Some optional paramters
-     * @param options.onComplete - Callback when the task is completed, if the pipeline is synchronous, onComplete is unnecessary.
-     * @param options.onProgress - Continuously callback when the task is runing, if the pipeline is synchronous, onProgress is unnecessary.
-     * @param options.onError - Callback when something goes wrong, if the pipeline is synchronous, onError is unnecessary.
-     * @param options.input - Something will be handled with pipeline
-     * @param options.progress - Progress information, you may need to assign it manually when multiple pipeline share one progress
-     * @param options.options - Custom parameters
-     *
-     * @example
-     * var task = new Task();
-     * task.set({input: ['test'], onComplete: (err, result) => console.log(err), onProgress: (finish, total) => console.log(finish / total)});
-     *
-     */
-    public set (options: ITaskOption = Object.create(null)) {
-        this.onComplete = options.onComplete || null;
-        this.onProgress = options.onProgress || null;
-        this.onError = options.onError || null;
-        this.source = this.input = options.input;
-        this.output = null;
-        this.progress = options.progress;
-        this.exclude = options.exclude;
-        this.cancelToken = options.cancelToken || null;
-        // custom data
-        this.options = options.options || Object.create(null);
+    private dependFinishCount = 0;
+
+    private dependTotalCount = 0;
+
+    private observers: Task[] = [];
+
+    public dependsOn (task: Task | Task[]) {
+        this.period++;
+        if (Array.isArray(task)) {
+            task.forEach(t => {
+                if (t.isFinish) { 
+                    this.dependFinishCount++;
+                } else {
+                    t.observers.push(this);
+                }
+            });
+            this.dependTotalCount += task.length;
+        } else {
+            if (task.isFinish) { 
+                this.dependFinishCount++;
+            } else {
+                task.observers.push(this);
+            }
+            this.dependTotalCount++;
+        }
+    }
+
+    public cancel () {
+        this.dispatch('cancel');
+    }
+
+    public complete () {
+        this.observers.forEach(x => x.dependFinishCount++);
+        this.observers.length = 0;
+        this.dispatch('complete', this.output);
     }
 
     /**
@@ -260,32 +225,34 @@ export default class Task {
      */
     public dispatch (event: string, param1?: any, param2?: any, param3?: any, param4?: any): void {
         switch (event) {
-        case 'complete':
-            if (this.onComplete) {
-                this.onComplete(param1, param2);
+            case 'complete':
+                if (this.onComplete) {
+                    this.onComplete(param1, param2);
+                }
+                break;
+            case 'error':
+                if (this.onError) {
+                    this.onError(param1, param2, param3, param4);
+                }
+                break;
+            case 'cancel':
+                if (this.onCancel) {
+                    this.onCancel(param1, param2, param3, param4);
+                }
+            default: {
+                const str = `on${event[0].toUpperCase()}${event.substr(1)}`;
+                if (typeof this[str] === 'function') {
+                    this[str](param1, param2, param3, param4);
+                }
+                break;
             }
-            break;
-        case 'progress':
-            if (this.onProgress) {
-                this.onProgress(param1, param2, param3, param4);
-            }
-            break;
-        case 'error':
-            if (this.onError) {
-                this.onError(param1, param2, param3, param4);
-            }
-            break;
-        default: {
-            const str = `on${event[0].toUpperCase()}${event.substr(1)}`;
-            if (typeof this[str] === 'function') {
-                this[str](param1, param2, param3, param4);
-            }
-            break;
-        }
         }
     }
 
-    public done (err?: Error | null) {
+    public done (err?: Error) {
+        if (err) { 
+            this.error = err; 
+        }
         this.period++;
     }
     /**
@@ -296,16 +263,23 @@ export default class Task {
      * 回收 task 用于复用
      *
      */
-    public recycle (): void {
-        if (Task._deadPool.length === Task.MAX_DEAD_NUM) { return; }
+    public recycle (): boolean {
+        let deadPool = Task._deadPool.get(this.constructor as Constructor<Task>);
+        if (!deadPool) {
+            deadPool = [];
+            Task._deadPool.set(this.constructor as Constructor<Task>, deadPool);
+        }
+        if (deadPool.length === Task.MAX_DEAD_NUM) { return false }
         this.onComplete = null;
-        this.onProgress = null;
+        this.onCancel = null;
         this.onError = null;
-        this.source = this.output = this.input = null;
-        this.progress = null;
+        this.output = this.input = null;
         this.options = null;
-        this.subTask = null;
         this.cancelToken = null;
-        Task._deadPool.push(this);
+        this.period = -1;
+        this.error = null;
+        this.subTasks.length = 0;
+        deadPool.push(this);
+        return true;
     }
 }

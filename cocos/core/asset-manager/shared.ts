@@ -150,16 +150,6 @@ export enum BuiltinBundleName {
 
     /**
      * @en
-     * The builtin bundle
-     *
-     * @zh
-     * 内置 bundle
-     *
-     */
-    MAIN = 'main',
-
-    /**
-     * @en
      * The builtin bundle, exists when Start Scene asset bundle is checked on the project building panel
      *
      * @zh

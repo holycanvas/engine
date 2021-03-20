@@ -301,7 +301,7 @@ export class AssetManager {
      * 内置 main 包
      */
     public get main (): Bundle | null {
-        return bundles.get(BuiltinBundleName.MAIN) || null;
+        return bundles.get(BuiltinBundleName.RESOURCES) || null;
     }
 
     /**
@@ -457,7 +457,11 @@ export class AssetManager {
         task.onProgress = onProg;
         task.options = opts;
         task.cancelToken = new CancelToken();
-        task.onComplete = asyncify(onComp);
+        task.onCancel = function () {
+            task.subTasks.forEach(x => x.cancelToken?.isCanceled = true);
+        }
+        task.onComplete = onComp;
+        gatherAsset(task);
         pipeline.async(task);
     }
 
@@ -538,7 +542,6 @@ export class AssetManager {
             return;
         }
 
-        opts.__isNative__ = true;
         opts.preset = opts.preset || 'remote';
         this.loadAny({ url }, opts, null, (err, data) => {
             if (err) {
@@ -584,7 +587,6 @@ export class AssetManager {
 
         opts.preset = opts.preset || 'bundle';
         opts.ext = 'bundle';
-        opts.__isNative__ = true;
         this.loadAny({ url: nameOrUrl }, opts, null, (err, data) => {
             if (err) {
                 error(err.message, err.stack);

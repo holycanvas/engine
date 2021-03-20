@@ -55,7 +55,7 @@ export interface IAssetInfo {
     packs?: IPackInfo[];
     redirect?: string;
     ver?: string;
-    nativeVer?: string;
+    depends: string[];
 }
 
 export interface IPackInfo extends IAssetInfo {
@@ -66,6 +66,12 @@ export interface IPackInfo extends IAssetInfo {
 export interface IAddressableInfo extends IAssetInfo {
     path: string;
     ctor: AssetType;
+}
+
+export interface IFontInfo extends IAssetInfo {
+    name: string,
+    ext: string
+
 }
 
 export interface ISceneInfo extends IAssetInfo {
@@ -151,10 +157,6 @@ export default class Config {
 
     public base = '';
 
-    public importBase = '';
-
-    public nativeBase = '';
-
     public deps: string[] | null = null;
 
     public assetInfos = new Cache<IAssetInfo>();
@@ -166,8 +168,6 @@ export default class Config {
     public init (options: IConfigOption) {
         processOptions(options);
 
-        this.importBase = options.importBase || '';
-        this.nativeBase = options.nativeBase || '';
         this.base = options.base || '';
         this.name = options.name || '';
         this.deps = options.deps || [];

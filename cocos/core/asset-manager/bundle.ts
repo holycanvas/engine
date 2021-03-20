@@ -30,7 +30,6 @@ import { Asset, SceneAsset } from '../assets';
 import { legacyCC } from '../global-exports';
 import { error, errorID } from '../platform/debug';
 import Config, { IAddressableInfo, IAssetInfo, IConfigOption, ISceneInfo } from './config';
-import releaseManager from './release-manager';
 import RequestItem from './request-item';
 import { assets, AssetType, bundles, CompleteCallbackWithData, CompleteCallbackNoData, IAssetOptions, ProgressCallback, IRequest } from './shared';
 import { parseLoadResArgs, parseParameters } from './utilities';
@@ -543,5 +542,5 @@ export default class Bundle {
  * @zh
  * resources 是一个 bundle，用于管理所有在 assets/resources 下的资源
  */
-export const resources: Bundle = new Bundle();
+export const resources = new Bundle();
 legacyCC.resources = resources;

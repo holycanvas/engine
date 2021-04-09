@@ -303,13 +303,6 @@ export class Mesh extends Asset {
         }
 
         this._initialized = true;
-
-        if (this._data.byteLength !== this._dataLength) {
-        // In the case of deferred loading, `this._data` is created before
-        // the actual binary buffer is loaded.
-            this._data = new Uint8Array(this._dataLength);
-            legacyCC.assetManager.postLoadNative(this);
-        }
         const { buffer } = this._data;
         const gfxDevice: Device = legacyCC.director.root.device;
         const vertexBuffers = this._createVertexBuffers(gfxDevice, buffer);
@@ -352,13 +345,7 @@ export class Mesh extends Asset {
                 if (idxView.stride !== dstStride) {
                     ib = getIndexStrideCtor(dstStride).from(ib);
                 }
-                if (this.loaded) {
-                    indexBuffer.update(ib);
-                } else {
-                    this.once('load', () => {
-                        indexBuffer!.update(ib);
-                    });
-                }
+                indexBuffer.update(ib);
             }
 
             const vbReference = prim.vertexBundelIndices.map((idx) => vertexBuffers[idx]);

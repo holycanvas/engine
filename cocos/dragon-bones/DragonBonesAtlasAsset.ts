@@ -19,7 +19,6 @@ import { legacyCC } from '../core/global-exports';
  */
 @ccclass('dragonBones.DragonBonesAtlasAsset')
 export class DragonBonesAtlasAsset extends Asset {
-    static preventDeferredLoadDependents: true
 
     constructor () {
         super();

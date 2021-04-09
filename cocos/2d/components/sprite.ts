@@ -715,15 +715,7 @@ export class Sprite extends Renderable2D {
     }
 
     private _applySpriteFrame (oldFrame: SpriteFrame | null) {
-        // if (oldFrame && oldFrame.off) {
-        //     oldFrame.off('load', this._onTextureLoaded, this);
-        // }
-
         const spriteFrame = this._spriteFrame;
-        // if (!spriteFrame || (this._material && this._material._texture) !== (spriteFrame && spriteFrame._texture)) {
-        //     // disable render flow until texture is loaded
-        //     this.markForRender(false);
-        // }
 
         if (this._renderData) {
             if (oldFrame) {
@@ -747,20 +739,11 @@ export class Sprite extends Renderable2D {
 
         if (spriteFrame) {
             if (!oldFrame || spriteFrame !== oldFrame) {
-                // this._material.setProperty('mainTexture', spriteFrame);
-                if (spriteFrame.loaded) {
+                if (spriteFrame) {
                     this._onTextureLoaded();
-                } else {
-                    spriteFrame.once('load', this._onTextureLoaded, this);
                 }
             }
         }
-        /*
-        if (EDITOR) {
-            // Set atlas
-            this._applyAtlas(spriteFrame);
-        }
-*/
     }
 
     /**

@@ -118,7 +118,6 @@ export declare namespace AnimationClip {
  */
 @ccclass('cc.AnimationClip')
 export class AnimationClip extends Asset {
-    public static preventDeferredLoadDependents = true;
 
     public static WrapMode = AnimationWrapMode;
 

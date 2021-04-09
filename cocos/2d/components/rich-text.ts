@@ -535,21 +535,8 @@ export class RichText extends UIComponent {
     }
 
     protected _onTTFLoaded () {
-        if (this._font instanceof TTFFont) {
-            if (this._font._nativeAsset) {
-                this._layoutDirty = true;
-                this._updateRichText();
-            } else {
-                assetManager.postLoadNative(this._font, (err) => {
-                    if (!this.isValid) { return; }
-                    this._layoutDirty = true;
-                    this._updateRichText();
-                });
-            }
-        } else {
-            this._layoutDirty = true;
-            this._updateRichText();
-        }
+        this._layoutDirty = true;
+        this._updateRichText();
     }
 
     protected _measureText (styleIndex: number, string?: string) {

@@ -159,15 +159,11 @@ const loadOneAssetPipeline = new Pipeline('loadOneAsset', [
                 }
             } else if (!options.reloadAsset && assets.has(uuid)) {
                 const asset = assets.get(uuid)!;
-                if (options.__asyncLoadAssets__ || !asset.__asyncLoadAssets__) {
-                    item.content = asset.addRef();
-                    if (progress.canInvoke) {
-                        task.dispatch('progress', ++progress.finish, progress.total, item);
-                    }
-                    done();
-                } else {
-                    loadDepends(task, asset, done, false);
+                item.content = asset.addRef();
+                if (progress.canInvoke) {
+                    task.dispatch('progress', ++progress.finish, progress.total, item);
                 }
+                done();
             } else {
                 options.__uuid__ = uuid;
                 parser.parse(id, file, 'import', options, (err, asset: Asset) => {
@@ -185,14 +181,14 @@ const loadOneAssetPipeline = new Pipeline('loadOneAsset', [
 function loadDepends (task: Task, asset: Asset, done: CompleteCallbackNoData, init: boolean) {
     const { input: item, progress } = task;
     const { uuid, id, options, config } = item as RequestItem;
-    const { __asyncLoadAssets__, cacheAsset } = options;
+    const { cacheAsset } = options;
 
     const depends = [];
     // add reference avoid being released during loading dependencies
     if (asset.addRef) {
         asset.addRef();
     }
-    getDepends(uuid, asset, Object.create(null), depends, false, __asyncLoadAssets__, config!);
+    getDepends(uuid, asset, Object.create(null), depends, config!);
     if (progress.canInvoke) {
         task.dispatch('progress', ++progress.finish, progress.total += depends.length, item);
     }
@@ -209,7 +205,6 @@ function loadDepends (task: Task, asset: Asset, done: CompleteCallbackNoData, in
             if (asset.decRef) {
                 asset.decRef(false);
             }
-            asset.__asyncLoadAssets__ = __asyncLoadAssets__;
             repeatItem.finish = true;
             repeatItem.err = err;
 

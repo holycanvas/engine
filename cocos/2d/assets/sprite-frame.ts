@@ -700,7 +700,6 @@ export class SpriteFrame extends Asset {
 
         if (info) {
             if (info.texture) {
-                this.loaded = false;
                 this._rect.x = this._rect.y = 0;
                 this._rect.width = info.texture.width;
                 this._rect.height = info.texture.height;

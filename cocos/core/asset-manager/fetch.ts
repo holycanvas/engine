@@ -55,7 +55,7 @@ export default function fetch (task: Task, done: CompleteCallbackNoData) {
         if (!item.isNative && assets.has(item.uuid)) {
             const asset = assets.get(item.uuid);
             asset!.addRef();
-            handle(item, task, asset, null, asset!.__asyncLoadAssets__, depends, total);
+            handle(item, task, asset, null, false, depends, total);
             cb();
             return;
         }
@@ -126,7 +126,7 @@ function handle (item: RequestItem, task: Task, content: any, file: any, loadDep
 
     if (loadDepends) {
         exclude[item.uuid] = true;
-        getDepends(item.uuid, file || content, exclude, depends, true, false, item.config!);
+        getDepends(item.uuid, file || content, exclude, depends, item.config!);
         progress.total = last + depends.length;
     }
 

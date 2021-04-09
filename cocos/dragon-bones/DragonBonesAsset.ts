@@ -23,7 +23,6 @@ import { legacyCC } from '../core/global-exports';
  */
 @ccclass('dragonBones.DragonBonesAsset')
 export class DragonBonesAsset extends Asset {
-    static preventDeferredLoadDependents = true;
 
     /**
      * @en See http://developer.egret.com/cn/github/egret-docs/DB/dbLibs/dataFormat/index.html

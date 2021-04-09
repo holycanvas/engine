@@ -753,7 +753,7 @@ export class Label extends Renderable2D {
         if (font && font instanceof BitmapFont) {
             const spriteFrame = font.spriteFrame;
             // cannot be activated if texture not loaded yet
-            if (!spriteFrame || !spriteFrame.textureLoaded()) {
+            if (!spriteFrame || !spriteFrame.texture) {
                 return false;
             }
         }
@@ -791,10 +791,8 @@ export class Label extends Renderable2D {
             };
             // cannot be activated if texture not loaded yet
             if (spriteFrame) {
-                if (spriteFrame.loaded || spriteFrame.textureLoaded) {
+                if (spriteFrame.loaded || spriteFrame.texture) {
                     onBMFontTextureLoaded();
-                } else {
-                    spriteFrame.once('load', onBMFontTextureLoaded, this);
                 }
             }
         } else {

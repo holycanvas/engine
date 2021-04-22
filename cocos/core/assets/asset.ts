@@ -38,6 +38,7 @@ import { Node } from '../scene-graph';
 import { legacyCC } from '../global-exports';
 import { extname } from '../utils/path';
 import { IRequest } from '../asset-manager/shared';
+import { assetManager } from '../asset-manager';
 
 /**
  * @en
@@ -96,6 +97,7 @@ export class Asset extends Eventify(CCObject) {
     public __onLoadedInvoked__ = false;
     public __nativeDepend__: any = null;
     public __depends__: any = null;
+    public handle: number = -1;
 
     private _file: any = null;
 
@@ -153,6 +155,8 @@ export class Asset extends Eventify(CCObject) {
             writable: true,
             // enumerable is false by default, to avoid uuid being assigned to empty string during destroy
         });
+
+        assetManager.
     }
 
     /**

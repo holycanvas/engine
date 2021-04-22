@@ -30,6 +30,13 @@ export type TaskCompleteCallback = (err: Error | null | undefined, data: any) =>
 export type TaskErrorCallback = (...args: any[]) => void;
 export type TaskCancelCallback = (...args: any[]) => void;
 
+export enum Priority {
+    HIGH,
+    MIDDLE,
+    NORMAL,
+    LOW
+}
+
 export class CancelToken {
     public isCanceled = false;
 }
@@ -161,7 +168,7 @@ export default class Task {
 
     public period = 0;
 
-    public priority = -1;
+    public priority = Priority.NORMAL;
 
     public get dependsFinished () {
         return this.dependFinishCount === this.dependTotalCount;

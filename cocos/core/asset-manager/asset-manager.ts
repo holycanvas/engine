@@ -125,6 +125,19 @@ export interface IAssetManagerOptions {
  *
  */
 export class AssetManager {
+
+    allAssets: Asset[] = [];
+    uuidToAssetMap: Map<string, Asset> = new Map(); 
+
+    addToManager (asset: Asset) {
+        asset.handle = this.allAssets.length;
+        this.allAssets.push(asset);
+    }
+
+    removeFromManager (asset: Asset) {
+        
+    }
+
     /**
      * @en
      * Normal loading pipeline

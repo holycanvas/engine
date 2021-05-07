@@ -151,7 +151,6 @@ const loadOneAssetPipeline = new Pipeline('loadOneAsset', [
                 }
 
                 if (finish || checkCircleReference(uuid, uuid, exclude)) {
-                    if (content) { content.addRef(); }
                     item.content = content;
                     done(err);
                 } else {
@@ -159,7 +158,7 @@ const loadOneAssetPipeline = new Pipeline('loadOneAsset', [
                 }
             } else if (!options.reloadAsset && assets.has(uuid)) {
                 const asset = assets.get(uuid)!;
-                item.content = asset.addRef();
+                item.content = asset;
                 if (progress.canInvoke) {
                     task.dispatch('progress', ++progress.finish, progress.total, item);
                 }
@@ -184,10 +183,6 @@ function loadDepends (task: Task, asset: Asset, done: CompleteCallbackNoData) {
     const { cacheAsset } = options;
 
     const depends = [];
-    // add reference avoid being released during loading dependencies
-    if (asset.addRef) {
-        asset.addRef();
-    }
     getDepends(uuid, asset, Object.create(null), depends, config!);
     if (progress.canInvoke) {
         task.dispatch('progress', ++progress.finish, progress.total += depends.length, item);
@@ -245,9 +240,6 @@ function loadDepends (task: Task, asset: Asset, done: CompleteCallbackNoData) {
 
             for (let i = 0, l = callbacks.length; i < l; i++) {
                 const cb = callbacks[i];
-                if (asset.addRef) {
-                    asset.addRef();
-                }
                 cb.item.content = asset;
                 cb.done(err);
             }

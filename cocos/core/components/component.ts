@@ -42,6 +42,7 @@ import { Node } from '../scene-graph';
 import { legacyCC } from '../global-exports';
 import { errorID, warnID, assertID } from '../platform/debug';
 import { CompPrefabInfo } from '../utils/prefab/prefab-info';
+import { GarbageCollectorContext } from '../asset-manager';
 
 const idGenerator = new IDGenerator('Comp');
 const IsOnLoadCalled = CCObject.Flags.IsOnLoadCalled;
@@ -637,6 +638,8 @@ class Component extends CCObject {
      * 此方法仅在编辑器下会被调用。
      */
     protected onRestore? (): void;
+
+    public markDependencies? (context: GarbageCollectorContext): void;
 }
 
 const proto = Component.prototype;

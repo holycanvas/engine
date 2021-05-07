@@ -35,6 +35,7 @@ import * as js from '../../core/utils/js';
 import { Asset } from '../../core/assets';
 import { SpriteFrame } from './sprite-frame';
 import { legacyCC } from '../../core/global-exports';
+import { GarbageCollectorContext } from '../../core';
 
 interface ISpriteAtlasSerializeData{
     name: string;
@@ -133,6 +134,14 @@ export class SpriteAtlas extends Asset {
         this.spriteFrames = js.createMap();
         for (let i = 0; i < frames.length; i += 2) {
             handle.result.push(this.spriteFrames, frames[i], frames[i + 1], js._getClassId(SpriteFrame));
+        }
+    }
+
+    public markDependencies (context: GarbageCollectorContext) {
+        for (const key in this.spriteFrames) {
+            if (this.spriteFrames[key]) {
+                context.mark(this.spriteFrames[key]);
+            }
         }
     }
 }

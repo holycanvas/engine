@@ -54,7 +54,7 @@ export default function fetch (task: Task, done: CompleteCallbackNoData) {
     forEach(task.input as RequestItem[], (item, cb) => {
         if (!item.isNative && assets.has(item.uuid)) {
             const asset = assets.get(item.uuid);
-            item.content = asset!.addRef();
+            item.content = asset;
             task.output.push(item);
             if (progress.canInvoke) {
                 task.dispatch('progress', ++progress.finish, progress.total, item);

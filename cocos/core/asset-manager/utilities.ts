@@ -143,15 +143,7 @@ export function setProperties (uuid: string, asset: Asset, assetsMap: Record<str
                 }
                 missingAsset = true;
             } else {
-                depend.owner[depend.prop] = dependAsset.addRef();
-                if (EDITOR) {
-                    let reference = references!.get(dependAsset);
-                    if (!reference || isScene(asset)) {
-                        reference = [];
-                        references!.add(depend.uuid, reference);
-                    }
-                    reference.push([asset, depend.owner, depend.prop]);
-                }
+                depend.owner[depend.prop] = dependAsset;
             }
         }
 
@@ -301,14 +293,7 @@ export function checkCircleReference (owner: string, uuid: string, map: Record<s
 export function asyncify (cb: ((p1?: any, p2?: any) => void) | null): (p1?: any, p2?: any) => void {
     return (p1, p2) => {
         if (!cb) { return; }
-        const refs: Asset[] = [];
-        if (Array.isArray(p2)) {
-            p2.forEach((x) => x instanceof Asset && refs.push(x.addRef()));
-        } else if (p2 instanceof Asset) {
-            refs.push(p2.addRef());
-        }
         callInNextTick(() => {
-            refs.forEach((x) => x.decRef(false));
             cb(p1, p2);
         });
     };

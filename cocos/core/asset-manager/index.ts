@@ -31,4 +31,5 @@
 
 export { default as assetManager, AssetManager } from './asset-manager';
 export { resources } from './bundle';
+export { GarbageCollectorContext } from './garbage-collector';
 export * from './deprecated';

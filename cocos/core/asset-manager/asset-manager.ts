@@ -174,6 +174,8 @@ export class AssetManager {
      */
     public assets: Cache<Asset> = assets;
 
+    private _allAssets: Asset[] = [];
+
     public generalImportBase = '';
     public generalNativeBase = '';
 
@@ -346,6 +348,22 @@ export class AssetManager {
         }
         this.generalImportBase = importBase;
         this.generalNativeBase = nativeBase;
+    }
+
+    public registerAsset (asset: Asset) {
+        if (asset.getInternalId() !== -1) return;
+        const id = this._allAssets.length;
+        this._allAssets.push(asset);
+        asset.setInternalId(id);
+    }
+
+    public unregisterAsset (asset: Asset) {
+        if (asset.getInternalId() === -1) return;
+        const lastAsset = this._allAssets[this._allAssets.length - 1];
+        lastAsset.setInternalId(asset.getInternalId());
+        this._allAssets.length -= 1;
+        asset.setInternalId(-1);
+        this.assets.remove(asset._uuid);
     }
 
     /**

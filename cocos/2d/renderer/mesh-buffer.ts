@@ -28,6 +28,7 @@
  * @module ui
  */
 import { BufferUsageBit, MemoryUsageBit, InputAssemblerInfo, Attribute, Buffer, BufferInfo, InputAssembler } from '../../core/gfx';
+import { legacyCC } from '../../core/global-exports';
 import { Batcher2D } from './batcher-2d';
 import { getComponentPerVertex } from './vertex-format';
 
@@ -57,7 +58,6 @@ export class MeshBuffer {
     // NOTE:
     // actually 256 * 4 * (vertexFormat._bytes / 4)
     // include pos, uv, color in ui attributes
-    private _batcher: Batcher2D;
     private _dirty = false;
     private _vertexFormatBytes = 0;
     private _initVDataCount = 0;
@@ -65,10 +65,6 @@ export class MeshBuffer {
     private _outOfCallback: ((...args: number[]) => void) | null = null;
     private _hInputAssemblers: InputAssembler[] = [];
     private _nextFreeIAHandle = 0;
-
-    constructor (batcher: Batcher2D) {
-        this._batcher = batcher;
-    }
 
     get vertexFormatBytes (): number {
         return this._vertexFormatBytes;
@@ -82,7 +78,7 @@ export class MeshBuffer {
         const vbStride = Float32Array.BYTES_PER_ELEMENT * formatBytes;
 
         if (!this.vertexBuffers.length) {
-            this.vertexBuffers.push(this._batcher.device.createBuffer(new BufferInfo(
+            this.vertexBuffers.push(legacyCC.director.root.device.createBuffer(new BufferInfo(
                 BufferUsageBit.VERTEX | BufferUsageBit.TRANSFER_DST,
                 MemoryUsageBit.HOST | MemoryUsageBit.DEVICE,
                 vbStride,
@@ -93,7 +89,7 @@ export class MeshBuffer {
         const ibStride = Uint16Array.BYTES_PER_ELEMENT;
 
         if (!this.indexBuffer) {
-            this._indexBuffer = this._batcher.device.createBuffer(new BufferInfo(
+            this._indexBuffer = legacyCC.director.root.device.createBuffer(new BufferInfo(
                 BufferUsageBit.INDEX | BufferUsageBit.TRANSFER_DST,
                 MemoryUsageBit.HOST | MemoryUsageBit.DEVICE,
                 ibStride,
@@ -176,7 +172,7 @@ export class MeshBuffer {
         }
 
         if (this._hInputAssemblers.length <= this._nextFreeIAHandle) {
-            this._hInputAssemblers.push(this._batcher.device.createInputAssembler(this._iaInfo));
+            this._hInputAssemblers.push(legacyCC.director.root.device.createInputAssembler(this._iaInfo));
         }
 
         const ia = this._hInputAssemblers[this._nextFreeIAHandle++];

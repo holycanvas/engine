@@ -11,6 +11,7 @@ export class RenderGroup2D extends TreeNode2D {
     public sortedRenderers: Renderer2D[];
     public drawBatches: DrawBatch2D[] = [];
     public meshBuffers: MeshBuffer[] = [];
+    public _currentBuffer: MeshBuffer | null = null;
     public colorDirtyRenderers: Renderer2D[] = [];
     public batchDirtyRenderers: Renderer2D[] = [];
     public verticesDirtyRenderers: Renderer2D[] = [];
@@ -72,54 +73,12 @@ export class RenderGroup2D extends TreeNode2D {
         return this._currMeshBuffer;
     }
 
-    set currBufferBatch (buffer: MeshBuffer | null) {
-        if (buffer) {
-            this._currMeshBuffer = buffer;
-        }
-    }
-
-    get batches () {
-        return this._batches;
-    }
-
-    /**
-     * Acquire a new mesh buffer if the vertex layout differs from the current one.
-     * @param attributes
-     */
     public acquireBufferBatch (attributes: Attribute[] = VertexFormat.vfmtPosUvColor) {
-        const strideBytes = attributes === VertexFormat.vfmtPosUvColor ? 36 /* 9x4 */ : VertexFormat.getAttributeStride(attributes);
-        if (!this._currMeshBuffer || (this._currMeshBuffer.vertexFormatBytes) !== strideBytes) {
+        if (!this._currMeshBuffer) {
             this._requireBufferBatch(attributes);
             return this._currMeshBuffer;
         }
         return this._currMeshBuffer;
-    }
-
-    public registerCustomBuffer (attributes: MeshBuffer | Attribute[], callback: ((...args: number[]) => void) | null) {
-        let batch: MeshBuffer;
-        if (attributes instanceof MeshBuffer) {
-            batch = attributes;
-        } else {
-            batch = this._bufferBatchPool.add();
-            batch.initialize(attributes, callback || this._recreateMeshBuffer.bind(this, attributes));
-        }
-        const strideBytes = batch.vertexFormatBytes;
-        let buffers = this._customMeshBuffers.get(strideBytes);
-        if (!buffers) { buffers = []; this._customMeshBuffers.set(strideBytes, buffers); }
-        buffers.push(batch);
-        return batch;
-    }
-
-    public unRegisterCustomBuffer (buffer: MeshBuffer) {
-        const buffers = this._customMeshBuffers.get(buffer.vertexFormatBytes);
-        if (buffers) {
-            for (let i = 0; i < buffers.length; i++) {
-                if (buffers[i] === buffer) {
-                    buffers.splice(i, 1);
-                    break;
-                }
-            }
-        }
     }
 
     public autoMergeBatches (renderComp: Renderer2D) {

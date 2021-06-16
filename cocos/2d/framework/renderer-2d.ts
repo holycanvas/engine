@@ -2,15 +2,12 @@ import { Color, Material, Texture2D, Vec2, Vec3 } from "../../core";
 import { BlendFactor } from "../../core/gfx/base/define";
 import { NodeEventType } from "../../core/scene-graph/node-event";
 import { RenderGroup2D } from "./render-group-2d";
-import { RenderRoot2D } from "./render-root-2d";
 import { TreeNode2D } from './tree-node';
 
 const colorFactor = 1 / 255;
 const temp = new Vec3();
 
 export class Renderer2D extends TreeNode2D {
-
-    public static globalVersion = 0
     
     public set texture (val: Texture2D) {
         if (this._texture !== val) {
@@ -120,7 +117,6 @@ export class Renderer2D extends TreeNode2D {
 
     onLayerChanged () {
         this.layer = this.node.layer;
-        this.root.batchDirty = true;
         this.root.batchDirty = true;
     }
 

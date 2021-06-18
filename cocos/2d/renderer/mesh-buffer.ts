@@ -29,12 +29,9 @@
  */
 import { BufferUsageBit, MemoryUsageBit, InputAssemblerInfo, Attribute, Buffer, BufferInfo, InputAssembler } from '../../core/gfx';
 import { legacyCC } from '../../core/global-exports';
-import { Batcher2D } from './batcher-2d';
 import { getComponentPerVertex } from './vertex-format';
 
 export class MeshBuffer {
-    public static OPACITY_OFFSET = 8;
-
     get attributes () { return this._attributes; }
     get vertexBuffers () { return this._vertexBuffers; }
     get indexBuffer () { return this._indexBuffer; }
@@ -60,9 +57,8 @@ export class MeshBuffer {
     // include pos, uv, color in ui attributes
     private _dirty = false;
     private _vertexFormatBytes = 0;
-    private _initVDataCount = 0;
-    private _initIDataCount = 256 * 6;
-    private _outOfCallback: ((...args: number[]) => void) | null = null;
+    public verticesCount = 0;
+    public indicesCount = 0;
     private _hInputAssemblers: InputAssembler[] = [];
     private _nextFreeIAHandle = 0;
 
@@ -70,19 +66,18 @@ export class MeshBuffer {
         return this._vertexFormatBytes;
     }
 
-    public initialize (attrs: Attribute[], outOfCallback: ((...args: number[]) => void) | null) {
-        this._outOfCallback = outOfCallback;
+    public initialize (attrs: Attribute[], verticesCount: number = 0, indicesCount: number = 0) {
         const formatBytes = getComponentPerVertex(attrs);
         this._vertexFormatBytes = formatBytes * Float32Array.BYTES_PER_ELEMENT;
-        this._initVDataCount = 256 * this._vertexFormatBytes;
-        const vbStride = Float32Array.BYTES_PER_ELEMENT * formatBytes;
+        this.verticesCount = verticesCount;
+        this.indicesCount = indicesCount;
 
         if (!this.vertexBuffers.length) {
             this.vertexBuffers.push(legacyCC.director.root.device.createBuffer(new BufferInfo(
                 BufferUsageBit.VERTEX | BufferUsageBit.TRANSFER_DST,
                 MemoryUsageBit.HOST | MemoryUsageBit.DEVICE,
-                vbStride,
-                vbStride,
+                this._vertexFormatBytes,
+                this._vertexFormatBytes,
             )));
         }
 
@@ -106,27 +101,9 @@ export class MeshBuffer {
     public request (vertexCount = 4, indicesCount = 6) {
         this.lastByteOffset = this.byteOffset;
         const byteOffset = this.byteOffset + vertexCount * this._vertexFormatBytes;
-        const indicesOffset = this.indicesOffset + indicesCount;
 
         if (vertexCount + this.vertexOffset > 65535) {
-            if (this._outOfCallback) {
-                this._outOfCallback.call(this._batcher, vertexCount, indicesCount);
-            }
             return false;
-        }
-
-        let byteLength = this.vData!.byteLength;
-        let indicesLength = this.iData!.length;
-        if (byteOffset > byteLength || indicesOffset > indicesLength) {
-            while (byteLength < byteOffset || indicesLength < indicesOffset) {
-                this._initVDataCount *= 2;
-                this._initIDataCount *= 2;
-
-                byteLength = this._initVDataCount * 4;
-                indicesLength = this._initIDataCount;
-            }
-
-            this._reallocBuffer();
         }
 
         this.vertexOffset += vertexCount;
@@ -135,6 +112,10 @@ export class MeshBuffer {
 
         this._dirty = true;
         return true;
+    }
+
+    public switchBufferAndReset () {
+  
     }
 
     public reset () {
@@ -180,6 +161,10 @@ export class MeshBuffer {
         ia.firstIndex = this.indicesStart;
         ia.indexCount = vCount;
 
+        this.vertexStart = this.vertexOffset;
+        this.indicesStart = this.indicesOffset;
+        this.byteStart = this.byteOffset;
+
         return ia;
     }
 
@@ -214,7 +199,7 @@ export class MeshBuffer {
             oldVData = new Uint8Array(this.vData.buffer);
         }
 
-        this.vData = new Float32Array(this._initVDataCount);
+        this.vData = new Float32Array(this.verticesCount * this._vertexFormatBytes);
 
         if (oldVData && copyOldData) {
             const newData = new Uint8Array(this.vData.buffer);
@@ -227,7 +212,7 @@ export class MeshBuffer {
     private _reallocIData (copyOldData: boolean) {
         const oldIData = this.iData;
 
-        this.iData = new Uint16Array(this._initIDataCount);
+        this.iData = new Uint16Array(this.indicesCount);
 
         if (oldIData && copyOldData) {
             const iData = this.iData;

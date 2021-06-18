@@ -8,6 +8,20 @@ const colorFactor = 1 / 255;
 const temp = new Vec3();
 
 export class Renderer2D extends TreeNode2D {
+
+    public set isVisible (val: boolean) {
+        if (this._isVisible !== val) {
+            this._isVisible = true;
+            this.root.batchDirty = true;
+            if (!this._isVisible) {
+                this.root.verticesDataCount -= this.verticesCount * 9;
+                this.root.indicesDataCount -= this.indicesCount;
+            } else {
+                this.root.verticesDataCount += this.verticesCount * 9;
+                this.root.indicesDataCount += this.indicesCount;
+            }
+        }
+    }
     
     public set texture (val: Texture2D) {
         if (this._texture !== val) {
@@ -72,6 +86,10 @@ export class Renderer2D extends TreeNode2D {
 
     public set verticesCount (val: number) {
         if (this._verticesCount !== val) {
+            if (!this._isVisible) {
+                this.root.verticesDataCount -= this._verticesCount * 9;
+                this.root.verticesDataCount += val * 9;
+            }
             this._verticesCount = val;
             this._verticesData = new Float32Array(val * 9);
             this.root.batchDirty = true;
@@ -80,6 +98,10 @@ export class Renderer2D extends TreeNode2D {
 
     public set indicesCount (val: number) {
         if (this._indicesCount !== val) {
+            if (!this._isVisible) {
+                this.root.indicesDataCount -= this._indicesCount;
+                this.root.indicesDataCount += val;
+            }
             this._indicesCount = val;
             this._indicesData = new Uint16Array(val);
             this.root.batchDirty = true;
@@ -98,7 +120,9 @@ export class Renderer2D extends TreeNode2D {
     private _uvs: Vec2[] = [];
     private _indices: number[] = [];
     private _root: RenderGroup2D | null = null;
+    private _isVisible: boolean = false;
     public _batchHash: number = 0;
+    public isRenderer = true;
     
     private _verticesCount = 0;
     private _indicesCount = 0;
@@ -107,17 +131,16 @@ export class Renderer2D extends TreeNode2D {
         super.onEnable();
         this.layer = this.node.layer;
         this.node.on(NodeEventType.LAYER_CHANGED, this.onLayerChanged, this);
-        this.root.batchDirty = true;
+        this.isVisible = true;
     }
 
     onDisable () {
         this.node.off(NodeEventType.LAYER_CHANGED, this.onLayerChanged, this);
-        this.root.batchDirty = true;
+        this.isVisible = false;
     }
 
     onLayerChanged () {
         this.layer = this.node.layer;
-        this.root.batchDirty = true;
     }
 
     updateColor () {
@@ -156,12 +179,6 @@ export class Renderer2D extends TreeNode2D {
     updateIndices () {
         for (let i = 0; i < this.indicesCount; i++) {
             this._indicesData[i] = this._indices[i];
-        }
-    }
-
-    updateBatch () {
-        if (this._root) {
-            this._root.batchDirty = true;
         }
     }
 

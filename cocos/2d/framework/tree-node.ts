@@ -7,18 +7,13 @@ export class TreeNode2D extends Component {
     public children: TreeNode2D[] = [];
     public opacity: number = 0;
     public root: RenderGroup2D | null = null;
-    private _orderDirty = false;
+    public isRenderer = false;
     private _priority: number = 0;
-
-    public set orderDirty (val: boolean) {
-        if (val === this._orderDirty) return;
-        this._orderDirty = val;
-    }
 
     public set priority (val: number) {
         if (this._priority !== val) {
             this._priority = val;
-            this.parent!.orderDirty = true;
+            this.root.orderDirty = true;
         }
     }
 

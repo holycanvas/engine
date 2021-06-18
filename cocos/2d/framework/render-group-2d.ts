@@ -8,10 +8,12 @@ import { Attribute } from "../../core/gfx/base/define";
 export class RenderGroup2D extends TreeNode2D {
     public shouldCulling = false;
     public batchDirty = true;
+    public orderDirty = true;
+    public verticesDataCount = 0;
+    public indicesDataCount = 0;
     public sortedRenderers: Renderer2D[];
     public drawBatches: DrawBatch2D[] = [];
-    public meshBuffers: MeshBuffer[] = [];
-    public _currentBuffer: MeshBuffer | null = null;
+    public meshBuffer: MeshBuffer | null = null;
     public colorDirtyRenderers: Renderer2D[] = [];
     public batchDirtyRenderers: Renderer2D[] = [];
     public verticesDirtyRenderers: Renderer2D[] = [];
@@ -40,54 +42,67 @@ export class RenderGroup2D extends TreeNode2D {
     public updateBatches () {
         if (this.orderDirty) {
             this.sortedRenderers.length = 0;
-            this.walk(this.addRenderer.bind(this));
+            this.verticesDataCount = 0;
+            this.indicesDataCount = 0;
+            const temp: TreeNode2D[] = [];
+            temp.push(this);
+            while (temp.length > 0) {
+                const treenode = temp.pop();
+                const children = treenode.children;
+                for (let i = children.length - 1; i >= 0; i--) {
+                    temp.push(children[i]);
+                }
+                treenode.root = this;
+                if (treenode.isRenderer) { 
+                    this.sortedRenderers.push(treenode as Renderer2D);
+                    if ((treenode as Renderer2D).isVisible) {
+                        this.verticesDataCount += (treenode as Renderer2D).verticesCount * 9;
+                        this.indicesDataCount += (treenode as Renderer2D).indicesCount;
+                    }
+                }
+            }
+            this.orderDirty = false;
             this.batchDirty = true;
         }
+
         this.updateAllDirtyRenderer();
         if (this.batchDirty && this.sortedRenderers.length > 0) {
             this.drawBatches.length = 0;
             let lastTexture = this.sortedRenderers[0].texture;
             let lastBatchHash = this.sortedRenderers[0]._batchHash;
             let lastRenderer = this.sortedRenderers[0];
+            lastRenderer.fillBuffer();
 
             for (let i = 1, l = this.sortedRenderers.length; i < l; i++) {
                 const renderer  = this.sortedRenderers[i];
+                if (!renderer.isVisible) continue;
                 const texture = renderer.texture;
 
-                if (lastTexture !== texture || lastBatchHash !== renderer._batchHash) {
+                const bufferExceedMaxSize = !this.meshBuffer.request(renderer.verticesCount, renderer.indicesCount)
+
+                if (lastTexture !== texture || lastBatchHash !== renderer._batchHash || bufferExceedMaxSize) {
                     this.autoMergeBatches(lastRenderer);
                     lastTexture = texture;
+                    lastBatchHash = renderer._batchHash;
                     lastRenderer = renderer;
                 }
 
+                if (bufferExceedMaxSize) {
+                    this.meshBuffer.switchBufferAndReset();
+                }
+
                 renderer.fillBuffer();
+                
             }
             this.autoMergeBatches(lastRenderer);
+            this.batchDirty = false;
         }
-    }
-
-    get currBufferBatch () {
-        if (this._currMeshBuffer) return this._currMeshBuffer;
-        // create if not set
-        this._currMeshBuffer = this.acquireBufferBatch();
-        return this._currMeshBuffer;
-    }
-
-    public acquireBufferBatch (attributes: Attribute[] = VertexFormat.vfmtPosUvColor) {
-        if (!this._currMeshBuffer) {
-            this._requireBufferBatch(attributes);
-            return this._currMeshBuffer;
-        }
-        return this._currMeshBuffer;
     }
 
     public autoMergeBatches (renderComp: Renderer2D) {
-        const buffer = this.currBufferBatch;
-        const ia = buffer?.recordBatch();
+        const buffer = this.meshBuffer;
+        const ia = buffer.recordBatch();
         const mat = renderComp.material;
-        if (!ia || !mat || !buffer) {
-            return;
-        }
         let blendState;
         let depthStencil;
         let dssHash = 0;
@@ -106,25 +121,14 @@ export class RenderGroup2D extends TreeNode2D {
         curDrawBatch.fillPasses(mat, depthStencil, dssHash, blendState, bsHash, null);
 
         this.drawBatches.push(curDrawBatch);
-
-        buffer.vertexStart = buffer.vertexOffset;
-        buffer.indicesStart = buffer.indicesOffset;
-        buffer.byteStart = buffer.byteOffset;
     }
 
     prepareBuffer () {
-        const bufferCount = Math.ceil(this.verticesCount / 65535);
-        for (let i = 0; i < bufferCount; i++) {
-            const meshBuffer = new MeshBuffer();
-            meshBuffer.initialize(VertexFormat.vfmtPosUvColor, 65535, 1)
-            this.meshBuffers.push()
-        }
-    }
-
-    public addRenderer (node: TreeNode2D) {
-        if (node instanceof Renderer2D) {
-            this.sortedRenderers.push(node);
-            node.root = this;
+        if (!this.meshBuffer) {
+            this.meshBuffer = new MeshBuffer();
+            this.meshBuffer.initialize(VertexFormat.vfmtPosUvColor, this.verticesDataCount, this.indicesDataCount);
+        } else if (this.meshBuffer.verticesCount < this.verticesDataCount) {
+            
         }
     }
 }

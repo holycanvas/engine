@@ -1,7 +1,6 @@
 import { Color, Material, Texture2D, Vec2, Vec3 } from "../../core";
 import { BlendFactor } from "../../core/gfx/base/define";
 import { NodeEventType } from "../../core/scene-graph/node-event";
-import { RenderGroup2D } from "./render-group-2d";
 import { TreeNode2D } from './tree-node';
 
 const colorFactor = 1 / 255;
@@ -12,7 +11,7 @@ export class Renderer2D extends TreeNode2D {
     public set isVisible (val: boolean) {
         if (this._isVisible !== val) {
             this._isVisible = true;
-            this.root.batchDirty = true;
+            this.root!.orderDirty = true;
             if (!this._isVisible) {
                 this.root.verticesDataCount -= this.verticesCount * 9;
                 this.root.indicesDataCount -= this.indicesCount;
@@ -119,10 +118,9 @@ export class Renderer2D extends TreeNode2D {
     private _vertices: Vec2[] = [];
     private _uvs: Vec2[] = [];
     private _indices: number[] = [];
-    private _root: RenderGroup2D | null = null;
     private _isVisible: boolean = false;
+    private _vertexOffset: number = 0;
     public _batchHash: number = 0;
-    public isRenderer = true;
     
     private _verticesCount = 0;
     private _indicesCount = 0;
@@ -182,23 +180,21 @@ export class Renderer2D extends TreeNode2D {
         }
     }
 
-    updateBuffer () {
-
+    public fillBuffer () {
+        const buffer = this.root.meshBuffer;
+        const vertexOffset = buffer.byteOffset >> 2;
+        this._vertexOffset = vertexOffset;
+        const indicesOffset = buffer.indicesOffset;
+        const vertexId = buffer.vertexOffset;
+        const vData = buffer.vData;
+        const iData = buffer.iData;
+        vData!.set(this._verticesData, vertexOffset);
+        for (let i = 0; i < this.indicesCount; i ++) {
+            iData![i + indicesOffset] = this._indicesData[i] + vertexId;
+        }
     }
 
-    fillBuffer () {
-        let buffer = this.root.acquireBufferBatch()!;
-
-        let vertexOffset = buffer.byteOffset >> 2;
-        let indicesOffset = buffer.indicesOffset;
-        let vertexId = buffer.vertexOffset;
-
-        const isRecreate = buffer.request();
-        if (!isRecreate) {
-            buffer = this.root.currBufferBatch!;
-            vertexOffset = 0;
-            indicesOffset = 0;
-            vertexId = 0;
-        }
+    public updateBuffer () {
+        this.root!.meshBuffer.vData.set(this._verticesData, this._vertexOffset);
     }
 }

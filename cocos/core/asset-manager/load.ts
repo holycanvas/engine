@@ -219,25 +219,19 @@ function loadDepends (task: Task, asset: Asset, done: CompleteCallbackNoData) {
 
                 setProperties(uuid, asset, map);
                 try {
-                    if (typeof asset.onLoaded === 'function' && !onLoadedInvokedMap.has(asset) && !nativeDependMap.has(asset)) {
+                    if (!onLoadedInvokedMap.has(asset) && !nativeDependMap.has(asset)) {
                         asset.onLoaded();
                         onLoadedInvokedMap.add(asset);
                     }
                 } catch (e) {
                     error(`The asset ${uuid} is invalid for some reason, detail message: ${e.message}, stack: ${e.stack}`);
                     if (EDITOR || PREVIEW) {
-                        if (asset instanceof Asset) {
-                            asset.initDefault();
-                        } else {
-                            // TODO: remove it.
-                            // scene asset might be a json in editor or preview
-                            SceneAsset.prototype.initDefault.call(asset);
-                        }
+                        asset.initDefault();
                     }
                 }
                 files.remove(id);
                 parsed.remove(id);
-                if (!BUILD && asset.validate && !asset.validate()) {
+                if (!BUILD && !asset.validate()) {
                     error(`The asset ${uuid} is invalid for some reason and will be reverted to default asset, please check it out!`);
                     asset.initDefault();
                 }
